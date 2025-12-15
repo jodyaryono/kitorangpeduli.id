@@ -31,6 +31,8 @@
                                    class="w-full pl-14 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition"
                                    placeholder="8123456789"
                                    pattern="[0-9]{9,13}"
+                                   inputmode="numeric"
+                                   maxlength="13"
                                    required>
                         </div>
                         <p class="text-xs text-gray-500 mt-1">Contoh: 81234567890 (tanpa 0 di depan)</p>
@@ -64,4 +66,20 @@
         </div>
     </div>
 </div>
+
+<script>
+    // Only allow numeric input in phone number field
+    document.getElementById('no_hp').addEventListener('input', function(e) {
+        // Remove any non-numeric characters
+        this.value = this.value.replace(/[^0-9]/g, '');
+    });
+    
+    // Prevent paste of non-numeric content
+    document.getElementById('no_hp').addEventListener('paste', function(e) {
+        e.preventDefault();
+        const pastedText = (e.clipboardData || window.clipboardData).getData('text');
+        const numericOnly = pastedText.replace(/[^0-9]/g, '');
+        this.value = numericOnly.substring(0, 13); // Max 13 digits
+    });
+</script>
 @endsection

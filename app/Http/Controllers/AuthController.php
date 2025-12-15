@@ -39,7 +39,9 @@ class AuthController extends Controller
     public function sendOtp(Request $request)
     {
         $request->validate([
-            'no_hp' => 'required|string|min:9|max:13',
+            'no_hp' => ['required', 'string', 'regex:/^[0-9]{9,13}$/'],
+        ], [
+            'no_hp.regex' => 'Nomor HP hanya boleh berisi angka (9-13 digit).',
         ]);
 
         // Normalize phone number to 62xxx format
