@@ -1,0 +1,36 @@
+-- Provinces data (UPSERT without code column)
+
+INSERT INTO provinces (id, name, created_at, updated_at) VALUES ('11', 'ACEH', NOW(), NOW()) ON CONFLICT (id) DO UPDATE SET name = 'ACEH', updated_at = NOW();
+INSERT INTO provinces (id, name, created_at, updated_at) VALUES ('12', 'SUMATERA UTARA', NOW(), NOW()) ON CONFLICT (id) DO UPDATE SET name = 'SUMATERA UTARA', updated_at = NOW();
+INSERT INTO provinces (id, name, created_at, updated_at) VALUES ('13', 'SUMATERA BARAT', NOW(), NOW()) ON CONFLICT (id) DO UPDATE SET name = 'SUMATERA BARAT', updated_at = NOW();
+INSERT INTO provinces (id, name, created_at, updated_at) VALUES ('14', 'RIAU', NOW(), NOW()) ON CONFLICT (id) DO UPDATE SET name = 'RIAU', updated_at = NOW();
+INSERT INTO provinces (id, name, created_at, updated_at) VALUES ('15', 'JAMBI', NOW(), NOW()) ON CONFLICT (id) DO UPDATE SET name = 'JAMBI', updated_at = NOW();
+INSERT INTO provinces (id, name, created_at, updated_at) VALUES ('16', 'SUMATERA SELATAN', NOW(), NOW()) ON CONFLICT (id) DO UPDATE SET name = 'SUMATERA SELATAN', updated_at = NOW();
+INSERT INTO provinces (id, name, created_at, updated_at) VALUES ('17', 'BENGKULU', NOW(), NOW()) ON CONFLICT (id) DO UPDATE SET name = 'BENGKULU', updated_at = NOW();
+INSERT INTO provinces (id, name, created_at, updated_at) VALUES ('18', 'LAMPUNG', NOW(), NOW()) ON CONFLICT (id) DO UPDATE SET name = 'LAMPUNG', updated_at = NOW();
+INSERT INTO provinces (id, name, created_at, updated_at) VALUES ('19', 'KEPULAUAN BANGKA BELITUNG', NOW(), NOW()) ON CONFLICT (id) DO UPDATE SET name = 'KEPULAUAN BANGKA BELITUNG', updated_at = NOW();
+INSERT INTO provinces (id, name, created_at, updated_at) VALUES ('21', 'KEPULAUAN RIAU', NOW(), NOW()) ON CONFLICT (id) DO UPDATE SET name = 'KEPULAUAN RIAU', updated_at = NOW();
+INSERT INTO provinces (id, name, created_at, updated_at) VALUES ('31', 'DKI JAKARTA', NOW(), NOW()) ON CONFLICT (id) DO UPDATE SET name = 'DKI JAKARTA', updated_at = NOW();
+INSERT INTO provinces (id, name, created_at, updated_at) VALUES ('32', 'JAWA BARAT', NOW(), NOW()) ON CONFLICT (id) DO UPDATE SET name = 'JAWA BARAT', updated_at = NOW();
+INSERT INTO provinces (id, name, created_at, updated_at) VALUES ('33', 'JAWA TENGAH', NOW(), NOW()) ON CONFLICT (id) DO UPDATE SET name = 'JAWA TENGAH', updated_at = NOW();
+INSERT INTO provinces (id, name, created_at, updated_at) VALUES ('34', 'DI YOGYAKARTA', NOW(), NOW()) ON CONFLICT (id) DO UPDATE SET name = 'DI YOGYAKARTA', updated_at = NOW();
+INSERT INTO provinces (id, name, created_at, updated_at) VALUES ('35', 'JAWA TIMUR', NOW(), NOW()) ON CONFLICT (id) DO UPDATE SET name = 'JAWA TIMUR', updated_at = NOW();
+INSERT INTO provinces (id, name, created_at, updated_at) VALUES ('36', 'BANTEN', NOW(), NOW()) ON CONFLICT (id) DO UPDATE SET name = 'BANTEN', updated_at = NOW();
+INSERT INTO provinces (id, name, created_at, updated_at) VALUES ('51', 'BALI', NOW(), NOW()) ON CONFLICT (id) DO UPDATE SET name = 'BALI', updated_at = NOW();
+INSERT INTO provinces (id, name, created_at, updated_at) VALUES ('52', 'NUSA TENGGARA BARAT', NOW(), NOW()) ON CONFLICT (id) DO UPDATE SET name = 'NUSA TENGGARA BARAT', updated_at = NOW();
+INSERT INTO provinces (id, name, created_at, updated_at) VALUES ('53', 'NUSA TENGGARA TIMUR', NOW(), NOW()) ON CONFLICT (id) DO UPDATE SET name = 'NUSA TENGGARA TIMUR', updated_at = NOW();
+INSERT INTO provinces (id, name, created_at, updated_at) VALUES ('61', 'KALIMANTAN BARAT', NOW(), NOW()) ON CONFLICT (id) DO UPDATE SET name = 'KALIMANTAN BARAT', updated_at = NOW();
+INSERT INTO provinces (id, name, created_at, updated_at) VALUES ('62', 'KALIMANTAN TENGAH', NOW(), NOW()) ON CONFLICT (id) DO UPDATE SET name = 'KALIMANTAN TENGAH', updated_at = NOW();
+INSERT INTO provinces (id, name, created_at, updated_at) VALUES ('63', 'KALIMANTAN SELATAN', NOW(), NOW()) ON CONFLICT (id) DO UPDATE SET name = 'KALIMANTAN SELATAN', updated_at = NOW();
+INSERT INTO provinces (id, name, created_at, updated_at) VALUES ('64', 'KALIMANTAN TIMUR', NOW(), NOW()) ON CONFLICT (id) DO UPDATE SET name = 'KALIMANTAN TIMUR', updated_at = NOW();
+INSERT INTO provinces (id, name, created_at, updated_at) VALUES ('65', 'KALIMANTAN UTARA', NOW(), NOW()) ON CONFLICT (id) DO UPDATE SET name = 'KALIMANTAN UTARA', updated_at = NOW();
+INSERT INTO provinces (id, name, created_at, updated_at) VALUES ('71', 'SULAWESI UTARA', NOW(), NOW()) ON CONFLICT (id) DO UPDATE SET name = 'SULAWESI UTARA', updated_at = NOW();
+INSERT INTO provinces (id, name, created_at, updated_at) VALUES ('72', 'SULAWESI TENGAH', NOW(), NOW()) ON CONFLICT (id) DO UPDATE SET name = 'SULAWESI TENGAH', updated_at = NOW();
+INSERT INTO provinces (id, name, created_at, updated_at) VALUES ('73', 'SULAWESI SELATAN', NOW(), NOW()) ON CONFLICT (id) DO UPDATE SET name = 'SULAWESI SELATAN', updated_at = NOW();
+INSERT INTO provinces (id, name, created_at, updated_at) VALUES ('74', 'SULAWESI TENGGARA', NOW(), NOW()) ON CONFLICT (id) DO UPDATE SET name = 'SULAWESI TENGGARA', updated_at = NOW();
+INSERT INTO provinces (id, name, created_at, updated_at) VALUES ('75', 'GORONTALO', NOW(), NOW()) ON CONFLICT (id) DO UPDATE SET name = 'GORONTALO', updated_at = NOW();
+INSERT INTO provinces (id, name, created_at, updated_at) VALUES ('76', 'SULAWESI BARAT', NOW(), NOW()) ON CONFLICT (id) DO UPDATE SET name = 'SULAWESI BARAT', updated_at = NOW();
+INSERT INTO provinces (id, name, created_at, updated_at) VALUES ('81', 'MALUKU', NOW(), NOW()) ON CONFLICT (id) DO UPDATE SET name = 'MALUKU', updated_at = NOW();
+INSERT INTO provinces (id, name, created_at, updated_at) VALUES ('82', 'MALUKU UTARA', NOW(), NOW()) ON CONFLICT (id) DO UPDATE SET name = 'MALUKU UTARA', updated_at = NOW();
+INSERT INTO provinces (id, name, created_at, updated_at) VALUES ('91', 'PAPUA BARAT', NOW(), NOW()) ON CONFLICT (id) DO UPDATE SET name = 'PAPUA BARAT', updated_at = NOW();
+INSERT INTO provinces (id, name, created_at, updated_at) VALUES ('94', 'PAPUA', NOW(), NOW()) ON CONFLICT (id) DO UPDATE SET name = 'PAPUA', updated_at = NOW();
