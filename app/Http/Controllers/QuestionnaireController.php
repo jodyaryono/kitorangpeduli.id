@@ -37,11 +37,11 @@ class QuestionnaireController extends Controller
                 ->with('error', 'Anda sudah mengisi kuesioner ini.');
         }
 
-        // Get or create draft response
+        // Get or create in-progress response
         $response = Response::firstOrCreate([
             'questionnaire_id' => $id,
             'respondent_id' => session('respondent.id'),
-            'status' => 'draft',
+            'status' => 'in_progress',
         ], [
             'started_at' => now(),
         ]);
@@ -63,7 +63,7 @@ class QuestionnaireController extends Controller
         try {
             $response = Response::where('questionnaire_id', $id)
                 ->where('respondent_id', session('respondent.id'))
-                ->where('status', 'draft')
+                ->where('status', 'in_progress')
                 ->first();
 
             if (!$response) {
@@ -125,14 +125,14 @@ class QuestionnaireController extends Controller
             // Get or create response
             $response = Response::where('questionnaire_id', $id)
                 ->where('respondent_id', session('respondent.id'))
-                ->where('status', 'draft')
+                ->where('status', 'in_progress')
                 ->first();
 
             if (!$response) {
                 $response = Response::create([
                     'questionnaire_id' => $id,
                     'respondent_id' => session('respondent.id'),
-                    'status' => 'draft',
+                    'status' => 'in_progress',
                     'started_at' => now(),
                 ]);
             }
