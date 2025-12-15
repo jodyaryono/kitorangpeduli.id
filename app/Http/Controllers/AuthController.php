@@ -3,14 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Models\CitizenType;
+use App\Models\District;
 use App\Models\Education;
 use App\Models\Occupation;
 use App\Models\Province;
+use App\Models\Regency;
 use App\Models\Respondent;
 use App\Services\WhatsAppService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class AuthController extends Controller
@@ -224,7 +227,7 @@ class AuthController extends Controller
                     ->toMediaCollection('ktp_image');
             }
         } catch (\Exception $e) {
-            \Log::error('Registration error: ' . $e->getMessage());
+            Log::error('Registration error: ' . $e->getMessage());
             return back()->withErrors(['error' => 'Terjadi kesalahan saat mendaftar. Silakan coba lagi.'])->withInput();
         }
 
@@ -250,14 +253,23 @@ class AuthController extends Controller
         }
 
         $respondent = Respondent::with([
-            'province',
-            'regency',
-            'district',
             'village',
             'citizenType',
             'occupation',
-            'education'
+            'education',
+            'media'
         ])->findOrFail(session('respondent.id'));
+
+        // Load wilayah manually due to type mismatch issue
+        if ($respondent->province_id) {
+            $respondent->province = Province::where('id', (int)$respondent->province_id)->first();
+        }
+        if ($respondent->regency_id) {
+            $respondent->regency = Regency::where('id', (int)$respondent->regency_id)->first();
+        }
+        if ($respondent->district_id) {
+            $respondent->district = District::where('id', (int)$respondent->district_id)->first();
+        }
 
         $provinces = Province::orderBy('name')->get();
         $educations = Education::orderBy('id')->get();
@@ -287,6 +299,7 @@ class AuthController extends Controller
             'citizen_type_id' => 'required|exists:citizen_types,id',
             'occupation_id' => 'required|exists:occupations,id',
             'education_id' => 'required|exists:educations,id',
+            'phone' => 'required|string|min:9|max:15|unique:respondents,phone,' . $respondent->id,
             'email' => 'nullable|email|max:255',
             'alamat' => 'required|string',
             'rt' => 'required|string|max:3',
@@ -301,6 +314,7 @@ class AuthController extends Controller
         ], [
             'nik.size' => 'NIK harus 16 digit.',
             'nik.unique' => 'NIK sudah terdaftar.',
+            'phone.unique' => 'Nomor HP sudah terdaftar.',
             'rt.max' => 'RT maksimal 3 digit.',
             'rw.max' => 'RW maksimal 3 digit.',
             'foto_ktp.image' => 'File harus berupa gambar.',
@@ -320,6 +334,7 @@ class AuthController extends Controller
                 'citizen_type_id' => $request->citizen_type_id,
                 'occupation_id' => $request->occupation_id,
                 'education_id' => $request->education_id,
+                'phone' => $request->phone,
                 'email' => $request->email,
                 'alamat' => $request->alamat,
                 'rt' => $request->rt,
@@ -351,7 +366,7 @@ class AuthController extends Controller
 
             return redirect()->route('profile.show')->with('success', 'Profil berhasil diperbarui!');
         } catch (\Exception $e) {
-            \Log::error('Profile update error: ' . $e->getMessage());
+            Log::error('Profile update error: ' . $e->getMessage());
             return back()->withErrors(['error' => 'Terjadi kesalahan saat memperbarui profil. Silakan coba lagi.'])->withInput();
         }
     }
