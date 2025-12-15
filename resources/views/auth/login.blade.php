@@ -73,7 +73,7 @@
         // Remove any non-numeric characters
         this.value = this.value.replace(/[^0-9]/g, '');
     });
-    
+
     // Prevent paste of non-numeric content
     document.getElementById('no_hp').addEventListener('paste', function(e) {
         e.preventDefault();
