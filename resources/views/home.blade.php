@@ -299,21 +299,22 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 
 <!-- Auth Modal -->
-<div id="authModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl max-w-md w-full p-8 relative">
-        <button onclick="closeAuthModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-            </svg>
-        </button>
+<div id="authModal" class="hidden fixed inset-0 z-[9999]" style="background-color: rgba(0, 0, 0, 0.5);">
+    <div class="flex items-center justify-center min-h-screen px-4 py-8">
+        <div class="bg-white rounded-2xl max-w-md w-full p-8 relative shadow-2xl">
+            <button onclick="closeAuthModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 z-10">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
 
-        <div class="text-center mb-6">
-            <div class="w-20 h-20 bg-gradient-to-r from-yellow-400 to-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span class="text-4xl">🔐</span>
+            <div class="text-center mb-6">
+                <div class="w-20 h-20 bg-gradient-to-r from-yellow-400 to-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span class="text-4xl">🔐</span>
+                </div>
+                <h3 class="text-2xl font-bold text-gray-800 mb-2">Masuk atau Daftar</h3>
+                <p class="text-gray-600">Silakan masuk atau daftar terlebih dahulu untuk mengisi survey</p>
             </div>
-            <h3 class="text-2xl font-bold text-gray-800 mb-2">Masuk atau Daftar</h3>
-            <p class="text-gray-600">Silakan masuk atau daftar terlebih dahulu untuk mengisi survey</p>
-        </div>
 
         <div class="space-y-3">
             <a href="{{ route('login') }}?intended=questionnaire&id="
@@ -332,6 +333,7 @@ document.addEventListener('DOMContentLoaded', function() {
         <p class="text-xs text-gray-500 text-center mt-6">
             Dengan mendaftar, Anda membantu pembangunan Kota Jayapura
         </p>
+        </div>
     </div>
 </div>
 
@@ -377,6 +379,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const authModal = document.getElementById('authModal');
     if (authModal) {
         authModal.addEventListener('click', function(event) {
+            // Only close if clicking the backdrop, not the modal content
             if (event.target === this) {
                 closeAuthModal();
             }
