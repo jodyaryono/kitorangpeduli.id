@@ -1,0 +1,21 @@
+<?php
+
+namespace App\Filament\Resources\Responses\Pages;
+
+use App\Filament\Resources\Responses\ResponseResource;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\ViewAction;
+use Filament\Resources\Pages\EditRecord;
+
+class EditResponse extends EditRecord
+{
+    protected static string $resource = ResponseResource::class;
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            ViewAction::make(),
+            DeleteAction::make(),
+        ];
+    }
+}
