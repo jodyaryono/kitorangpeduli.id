@@ -242,4 +242,117 @@ class AuthController extends Controller
         session()->forget('respondent');
         return redirect()->route('home')->with('success', 'Anda telah keluar.');
     }
+
+    public function showProfile()
+    {
+        if (!session('respondent')) {
+            return redirect()->route('login')->with('info', 'Silakan masuk terlebih dahulu.');
+        }
+
+        $respondent = Respondent::with([
+            'province',
+            'regency',
+            'district',
+            'village',
+            'citizenType',
+            'occupation',
+            'education'
+        ])->findOrFail(session('respondent.id'));
+
+        $provinces = Province::orderBy('name')->get();
+        $educations = Education::orderBy('id')->get();
+        $occupations = Occupation::orderBy('id')->get();
+        $citizenTypes = CitizenType::orderBy('name')->get();
+
+        return view('profile.show', compact('respondent', 'provinces', 'educations', 'occupations', 'citizenTypes'));
+    }
+
+    public function updateProfile(Request $request)
+    {
+        if (!session('respondent')) {
+            return redirect()->route('login')->with('info', 'Silakan masuk terlebih dahulu.');
+        }
+
+        $respondent = Respondent::findOrFail(session('respondent.id'));
+
+        $request->validate([
+            'nama_lengkap' => 'required|string|max:255',
+            'nik' => 'required|string|size:16|unique:respondents,nik,' . $respondent->id,
+            'tempat_lahir' => 'required|string|max:255',
+            'tanggal_lahir' => 'required|date',
+            'jenis_kelamin' => 'required|in:L,P',
+            'agama' => 'required|string',
+            'golongan_darah' => 'required|string',
+            'status_perkawinan' => 'required|string',
+            'citizen_type_id' => 'required|exists:citizen_types,id',
+            'occupation_id' => 'required|exists:occupations,id',
+            'education_id' => 'required|exists:educations,id',
+            'email' => 'nullable|email|max:255',
+            'alamat' => 'required|string',
+            'rt' => 'required|string|max:3',
+            'rw' => 'required|string|max:3',
+            'province_id' => 'required|exists:provinces,id',
+            'regency_id' => 'required|exists:regencies,id',
+            'district_id' => 'required|exists:districts,id',
+            'village_id' => 'required|exists:villages,id',
+            'latitude' => 'nullable|numeric',
+            'longitude' => 'nullable|numeric',
+            'foto_ktp' => 'nullable|image|max:2048',
+        ], [
+            'nik.size' => 'NIK harus 16 digit.',
+            'nik.unique' => 'NIK sudah terdaftar.',
+            'rt.max' => 'RT maksimal 3 digit.',
+            'rw.max' => 'RW maksimal 3 digit.',
+            'foto_ktp.image' => 'File harus berupa gambar.',
+            'foto_ktp.max' => 'Ukuran gambar maksimal 2MB.',
+        ]);
+
+        try {
+            $respondent->update([
+                'nama_lengkap' => $request->nama_lengkap,
+                'nik' => $request->nik,
+                'tempat_lahir' => $request->tempat_lahir,
+                'tanggal_lahir' => $request->tanggal_lahir,
+                'jenis_kelamin' => $request->jenis_kelamin,
+                'agama' => $request->agama,
+                'golongan_darah' => $request->golongan_darah,
+                'status_perkawinan' => $request->status_perkawinan,
+                'citizen_type_id' => $request->citizen_type_id,
+                'occupation_id' => $request->occupation_id,
+                'education_id' => $request->education_id,
+                'email' => $request->email,
+                'alamat' => $request->alamat,
+                'rt' => $request->rt,
+                'rw' => $request->rw,
+                'province_id' => $request->province_id,
+                'regency_id' => $request->regency_id,
+                'district_id' => $request->district_id,
+                'village_id' => $request->village_id,
+                'latitude' => $request->latitude,
+                'longitude' => $request->longitude,
+            ]);
+
+            // Upload new KTP photo if provided
+            if ($request->hasFile('foto_ktp')) {
+                // Delete old photo
+                $respondent->clearMediaCollection('ktp_image');
+                // Add new photo
+                $respondent
+                    ->addMediaFromRequest('foto_ktp')
+                    ->toMediaCollection('ktp_image');
+            }
+
+            // Update session data
+            session(['respondent' => [
+                'id' => $respondent->id,
+                'nama_lengkap' => $respondent->nama_lengkap,
+                'phone' => $respondent->phone,
+            ]]);
+
+            return redirect()->route('profile.show')->with('success', 'Profil berhasil diperbarui!');
+        } catch (\Exception $e) {
+            \Log::error('Profile update error: ' . $e->getMessage());
+            return back()->withErrors(['error' => 'Terjadi kesalahan saat memperbarui profil. Silakan coba lagi.'])->withInput();
+        }
+    }
 }

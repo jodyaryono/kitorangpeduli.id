@@ -21,6 +21,10 @@ Route::middleware('guest')->group(function () {
 // Logout
 Route::get('/logout', [AuthController::class, 'logout'])->name('logout');
 
+// Profile routes (authenticated respondents only)
+Route::get('/profile', [AuthController::class, 'showProfile'])->name('profile.show');
+Route::post('/profile', [AuthController::class, 'updateProfile'])->name('profile.update');
+
 // Questionnaire routes
 Route::get('/questionnaire/{id}/start', [QuestionnaireController::class, 'start'])->name('questionnaire.start');
 Route::post('/questionnaire/{id}/autosave', [QuestionnaireController::class, 'autosave'])->name('questionnaire.autosave');
