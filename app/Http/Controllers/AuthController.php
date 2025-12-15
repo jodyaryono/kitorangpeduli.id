@@ -42,7 +42,12 @@ class AuthController extends Controller
             'no_hp' => 'required|string|min:9|max:13',
         ]);
 
-        $no_hp = ltrim($request->no_hp, '0');
+        // Normalize phone number to 62xxx format
+        $no_hp = preg_replace('/[^0-9]/', '', $request->no_hp);
+        $no_hp = ltrim($no_hp, '0');
+        if (!str_starts_with($no_hp, '62')) {
+            $no_hp = '62' . $no_hp;
+        }
 
         // Check if respondent exists
         $respondent = Respondent::where('phone', $no_hp)->first();
@@ -174,7 +179,12 @@ class AuthController extends Controller
             'foto_ktp.mimes' => 'Format foto KTP harus JPG, JPEG, atau PNG.',
         ]);
 
-        $no_hp = ltrim($request->no_hp, '0');
+        // Normalize phone number to 62xxx format
+        $no_hp = preg_replace('/[^0-9]/', '', $request->no_hp);
+        $no_hp = ltrim($no_hp, '0');
+        if (!str_starts_with($no_hp, '62')) {
+            $no_hp = '62' . $no_hp;
+        }
 
         try {
             // Create respondent
