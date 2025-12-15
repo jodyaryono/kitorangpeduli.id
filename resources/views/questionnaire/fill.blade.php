@@ -103,7 +103,8 @@
                         @php
                             $globalIndex = ($page * $questionsPerPage) + $loop->index;
                             $existingAnswer = $existingAnswers->get($question->id);
-                            $savedValue = $existingAnswer ? ($existingAnswer->answer_text ?? $existingAnswer->answer_value) : null;
+                            // Prioritize selected_options for checkbox/multiple_choice, then answer_text, then answer_numeric
+                            $savedValue = $existingAnswer ? ($existingAnswer->selected_options ?? $existingAnswer->answer_text ?? $existingAnswer->answer_numeric) : null;
                         @endphp
                         <div class="bg-white rounded-2xl shadow-lg p-8 mb-6">
 
@@ -180,13 +181,16 @@
                                         <div class="space-y-3">
                                             @if($question->options->count() > 0)
                                                 @foreach($question->options as $option)
+                                                    @php
+                                                        $optionValue = $option->option_value ?? $option->value ?? $option->option_text;
+                                                    @endphp
                                                     <label class="flex items-center p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-yellow-50 hover:border-yellow-400 transition has-[:checked]:bg-yellow-50 has-[:checked]:border-yellow-500">
                                                         <input type="radio"
                                                                name="answers[{{ $question->id }}]"
-                                                               value="{{ $option->option_value }}"
+                                                               value="{{ $optionValue }}"
                                                                class="answer-input w-5 h-5 text-yellow-600 focus:ring-yellow-500"
                                                                data-question-id="{{ $question->id }}"
-                                                               {{ old('answers.' . $question->id, $savedValue) == $option->option_value ? 'checked' : '' }}
+                                                               {{ old('answers.' . $question->id, $savedValue) == $optionValue ? 'checked' : '' }}
                                                                {{ $question->is_required ? 'required' : '' }}>
                                                         <span class="ml-3 text-gray-700">{{ $option->option_text }}</span>
                                                     </label>
@@ -206,12 +210,13 @@
                                                     @php
                                                         $savedArray = $savedValue ? json_decode($savedValue, true) : [];
                                                         $oldArray = old('answers.' . $question->id, $savedArray);
-                                                        $isChecked = is_array($oldArray) && in_array($option->option_value, $oldArray);
+                                                        $optionValue = $option->option_value ?? $option->value ?? $option->option_text;
+                                                        $isChecked = is_array($oldArray) && in_array($optionValue, $oldArray);
                                                     @endphp
                                                     <label class="flex items-center p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-yellow-50 hover:border-yellow-400 transition has-[:checked]:bg-yellow-50 has-[:checked]:border-yellow-500">
                                                         <input type="checkbox"
                                                                name="answers[{{ $question->id }}][]"
-                                                               value="{{ $option->option_value }}"
+                                                               value="{{ $optionValue }}"
                                                                class="answer-input w-5 h-5 text-yellow-600 rounded focus:ring-yellow-500"
                                                                data-question-id="{{ $question->id }}"
                                                                {{ $isChecked ? 'checked' : '' }}>
@@ -419,10 +424,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Auto-save function
-    function autoSave(questionId, value) {
+    function autoSave(questionId, value, immediate = false) {
         clearTimeout(autoSaveTimeout);
 
-        autoSaveTimeout = setTimeout(() => {
+        const saveFunction = () => {
             const formData = new FormData();
             formData.append('_token', '{{ csrf_token() }}');
             formData.append('question_id', questionId);
@@ -445,7 +450,15 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(error => {
                 console.error('Auto-save error:', error);
             });
-        }, 1000); // Delay 1 detik setelah user berhenti mengetik
+        };
+
+        if (immediate) {
+            // For radio and checkbox, save immediately
+            saveFunction();
+        } else {
+            // For text inputs, delay 1 second
+            autoSaveTimeout = setTimeout(saveFunction, 1000);
+        }
     }
 
     // Listen to all answer inputs
@@ -459,12 +472,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
                     // For radio, get the value
                     if (this.type === 'radio') {
-                        autoSave(questionId, this.value);
+                        autoSave(questionId, this.value, true); // Save immediately
                     } else {
                         // For checkbox, collect all checked values
                         const checkedValues = Array.from(document.querySelectorAll(`input[data-question-id="${questionId}"]:checked`))
                             .map(cb => cb.value);
-                        autoSave(questionId, JSON.stringify(checkedValues));
+                        autoSave(questionId, JSON.stringify(checkedValues), true); // Save immediately
                     }
                 } else if (this.type === 'checkbox') {
                     // Check if any checkbox for this question is still checked
@@ -475,7 +488,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                     const checkedValues = Array.from(document.querySelectorAll(`input[data-question-id="${questionId}"]:checked`))
                         .map(cb => cb.value);
-                    autoSave(questionId, JSON.stringify(checkedValues));
+                    autoSave(questionId, JSON.stringify(checkedValues), true); // Save immediately
                 }
                 updateProgress();
             });
@@ -484,7 +497,7 @@ document.addEventListener('DOMContentLoaded', function() {
             input.addEventListener('input', function() {
                 if (this.value && this.value.trim() !== '') {
                     answeredQuestions.add(questionId);
-                    autoSave(questionId, this.value);
+                    autoSave(questionId, this.value, false); // Delay for text inputs
                 } else {
                     answeredQuestions.delete(questionId);
                 }
@@ -509,12 +522,74 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Prevent form submission if not 100%
     document.getElementById('surveyForm').addEventListener('submit', function(e) {
+        e.preventDefault(); // Always prevent default first
+
         const progress = (answeredQuestions.size / totalQuestions) * 100;
         if (progress < 100) {
-            e.preventDefault();
             alert('Mohon jawab semua pertanyaan terlebih dahulu!');
             return false;
         }
+
+        // Show confirmation popup
+        const confirmPopup = document.createElement('div');
+        confirmPopup.id = 'confirmPopup';
+        confirmPopup.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]';
+        confirmPopup.innerHTML = `
+            <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-md mx-4">
+                <div class="flex flex-col items-center text-center">
+                    <div class="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mb-4">
+                        <svg class="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-800 mb-2">Apakah Anda Yakin?</h3>
+                    <p class="text-gray-600 mb-6">Kuesioner yang sudah terkirim tidak bisa diubah lagi setelah dikirim.</p>
+                    <div class="flex gap-3 w-full">
+                        <button type="button" id="cancelSubmit" class="flex-1 px-6 py-3 bg-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-400 transition">
+                            Tidak
+                        </button>
+                        <button type="button" id="confirmSubmit" class="flex-1 px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition">
+                            Ya, Kirim
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(confirmPopup);
+
+        // Handle cancel
+        document.getElementById('cancelSubmit').addEventListener('click', function() {
+            confirmPopup.remove();
+        });
+
+        // Handle confirm
+        document.getElementById('confirmSubmit').addEventListener('click', function() {
+            confirmPopup.remove();
+
+            // Show loading popup
+            const loadingPopup = document.createElement('div');
+            loadingPopup.id = 'loadingPopup';
+            loadingPopup.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]';
+            loadingPopup.innerHTML = `
+                <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-sm mx-4">
+                    <div class="flex flex-col items-center">
+                        <div class="animate-spin rounded-full h-16 w-16 border-b-4 border-yellow-500 mb-4"></div>
+                        <h3 class="text-xl font-bold text-gray-800 mb-2">Mengirim Jawaban...</h3>
+                        <p class="text-gray-600 text-center">Mohon tunggu, jawaban Anda sedang diproses</p>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(loadingPopup);
+
+            // Disable submit button to prevent double submission
+            const submitBtn = document.getElementById('submitBtn');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+            }
+
+            // Submit the form
+            document.getElementById('surveyForm').submit();
+        });
     });
 
     // Initial setup

@@ -1,5 +1,5 @@
 @foreach($questionnaires as $questionnaire)
-    <div class="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition duration-300 border-t-4 border-yellow-500">
+    <div class="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition duration-300 border-t-4 border-yellow-500" data-questionnaire-id="{{ $questionnaire->id }}">
         <div class="p-6">
             <!-- OPD Badge -->
             <div class="flex items-start justify-between mb-3">
@@ -44,7 +44,7 @@
 
                     $inProgress = $questionnaire->responses()
                         ->where('respondent_id', session('respondent.id'))
-                        ->where('status', 'draft')
+                        ->where('status', 'in_progress')
                         ->first();
 
                     if ($inProgress) {

@@ -73,9 +73,20 @@ class QuestionnaireController extends Controller
             $questionId = $request->question_id;
             $value = $request->answer;
 
+            \Log::info('Autosave received', [
+                'question_id' => $questionId,
+                'raw_value' => $value,
+                'is_string' => is_string($value),
+                'is_array' => is_array($value)
+            ]);
+
             // Decode if JSON (for checkboxes)
             if (is_string($value) && json_decode($value) !== null) {
-                $value = json_decode($value);
+                $decoded = json_decode($value);
+                if ($decoded !== null) {
+                    $value = $decoded;
+                    \Log::info('Decoded JSON value', ['decoded' => $value]);
+                }
             }
 
             $answerData = [
@@ -84,9 +95,11 @@ class QuestionnaireController extends Controller
             ];
 
             if (is_array($value)) {
-                $answerData['answer_value'] = json_encode($value);
+                $answerData['selected_options'] = json_encode($value);
+                \Log::info('Saving as selected_options', ['json' => $answerData['selected_options']]);
             } else {
                 $answerData['answer_text'] = $value;
+                \Log::info('Saving as answer_text', ['text' => $value]);
             }
 
             Answer::updateOrCreate(
@@ -96,6 +109,7 @@ class QuestionnaireController extends Controller
 
             return response()->json(['success' => true, 'message' => 'Saved']);
         } catch (\Exception $e) {
+            \Log::error('Autosave error', ['error' => $e->getMessage()]);
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
@@ -110,15 +124,15 @@ class QuestionnaireController extends Controller
 
         // Validate required questions
         $rules = [];
+        $customMessages = [];
         foreach ($questionnaire->questions as $question) {
             if ($question->is_required) {
                 $rules["answers.{$question->id}"] = 'required';
+                $customMessages["answers.{$question->id}.required"] = "Pertanyaan #{$question->order_number}: {$question->question_text} - wajib dijawab.";
             }
         }
 
-        $request->validate($rules, [
-            'answers.*.required' => 'Pertanyaan ini wajib dijawab.',
-        ]);
+        $request->validate($rules, $customMessages);
 
         DB::beginTransaction();
         try {
@@ -158,7 +172,7 @@ class QuestionnaireController extends Controller
 
                 if (is_array($value)) {
                     // Multiple choice (checkbox)
-                    $answerData['answer_value'] = json_encode($value);
+                    $answerData['selected_options'] = json_encode($value);
                 } elseif ($question->type === 'number' || $question->type === 'rating') {
                     $answerData['answer_numeric'] = $value;
                 } else {

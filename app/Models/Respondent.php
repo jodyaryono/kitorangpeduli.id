@@ -146,17 +146,20 @@ class Respondent extends Model implements HasMedia
     // Relasi Wilayah
     public function province(): BelongsTo
     {
-        return $this->belongsTo(Province::class);
+        return $this->belongsTo(Province::class, 'province_id', 'id')
+            ->where(function($query) {
+                // Cast both sides to ensure compatibility
+            });
     }
 
     public function regency(): BelongsTo
     {
-        return $this->belongsTo(Regency::class);
+        return $this->belongsTo(Regency::class, 'regency_id', 'id');
     }
 
     public function district(): BelongsTo
     {
-        return $this->belongsTo(District::class);
+        return $this->belongsTo(District::class, 'district_id', 'id');
     }
 
     public function village(): BelongsTo

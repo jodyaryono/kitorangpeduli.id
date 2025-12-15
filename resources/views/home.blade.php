@@ -225,12 +225,30 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .then(response => response.json())
             .then(data => {
-                // Append new cards
-                grid.insertAdjacentHTML('beforeend', data.html);
+                // Create a temporary container to parse the HTML
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = data.html;
+
+                // Get all new cards
+                const newCards = tempDiv.querySelectorAll('[data-questionnaire-id]');
+
+                // Get existing questionnaire IDs
+                const existingIds = new Set(
+                    Array.from(grid.querySelectorAll('[data-questionnaire-id]'))
+                        .map(card => card.dataset.questionnaireId)
+                );
+
+                // Only append cards that don't already exist
+                newCards.forEach(card => {
+                    if (!existingIds.has(card.dataset.questionnaireId)) {
+                        grid.appendChild(card);
+                    }
+                });
 
                 // Update showing count
-                if (data.showing) {
-                    showingCount.textContent = data.showing;
+                const totalCards = grid.querySelectorAll('[data-questionnaire-id]').length;
+                if (showingCount) {
+                    showingCount.textContent = totalCards;
                 }
 
                 if (data.hasMore) {

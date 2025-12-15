@@ -74,6 +74,9 @@
                 </div>
                 <div class="flex items-center space-x-4">
                     @if(session('respondent'))
+                        <a href="{{ route('profile.show') }}" class="text-yellow-400 hover:text-yellow-300 text-sm font-medium transition flex items-center gap-1">
+                            <span>👤</span> Profil
+                        </a>
                         <span class="text-yellow-400 text-sm font-medium">{{ session('respondent.nama_lengkap') }}</span>
                         <a href="{{ route('logout') }}" class="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-700 transition border border-red-500">
                             Keluar
