@@ -176,39 +176,44 @@ class AuthController extends Controller
 
         $no_hp = ltrim($request->no_hp, '0');
 
-        // Create respondent
-        $respondent = Respondent::create([
-            'nama_lengkap' => $request->nama_lengkap,
-            'nik' => $request->nik,
-            'status_hubungan' => $request->status_hubungan ?: ($request->no_kk ? 'Anggota Keluarga' : null),
-            'tempat_lahir' => $request->tempat_lahir,
-            'tanggal_lahir' => $request->tanggal_lahir,
-            'jenis_kelamin' => $request->jenis_kelamin,
-            'agama' => $request->agama,
-            'golongan_darah' => $request->golongan_darah,
-            'status_perkawinan' => $request->status_perkawinan,
-            'citizen_type_id' => $request->citizen_type_id,
-            'occupation_id' => $request->occupation_id,
-            'education_id' => $request->education_id,
-            'phone' => $no_hp,
-            'email' => $request->email,
-            'alamat' => $request->alamat,
-            'rt' => $request->rt,
-            'rw' => $request->rw,
-            'province_id' => $request->province_id,
-            'regency_id' => $request->regency_id,
-            'district_id' => $request->district_id,
-            'village_id' => $request->village_id,
-            'latitude' => $request->latitude,
-            'longitude' => $request->longitude,
-            'verification_status' => 'pending',
-        ]);
+        try {
+            // Create respondent
+            $respondent = Respondent::create([
+                'nama_lengkap' => $request->nama_lengkap,
+                'nik' => $request->nik,
+                'status_hubungan' => $request->status_hubungan ?: ($request->no_kk ? 'Anggota Keluarga' : null),
+                'tempat_lahir' => $request->tempat_lahir,
+                'tanggal_lahir' => $request->tanggal_lahir,
+                'jenis_kelamin' => $request->jenis_kelamin,
+                'agama' => $request->agama,
+                'golongan_darah' => $request->golongan_darah,
+                'status_perkawinan' => $request->status_perkawinan,
+                'citizen_type_id' => $request->citizen_type_id,
+                'occupation_id' => $request->occupation_id,
+                'education_id' => $request->education_id,
+                'phone' => $no_hp,
+                'email' => $request->email,
+                'alamat' => $request->alamat,
+                'rt' => $request->rt,
+                'rw' => $request->rw,
+                'province_id' => $request->province_id,
+                'regency_id' => $request->regency_id,
+                'district_id' => $request->district_id,
+                'village_id' => $request->village_id,
+                'latitude' => $request->latitude,
+                'longitude' => $request->longitude,
+                'verification_status' => 'pending',
+            ]);
 
-        // Upload KTP photo
-        if ($request->hasFile('foto_ktp')) {
-            $respondent
-                ->addMediaFromRequest('foto_ktp')
-                ->toMediaCollection('ktp');
+            // Upload KTP photo
+            if ($request->hasFile('foto_ktp')) {
+                $respondent
+                    ->addMediaFromRequest('foto_ktp')
+                    ->toMediaCollection('ktp_image');
+            }
+        } catch (\Exception $e) {
+            \Log::error('Registration error: ' . $e->getMessage());
+            return back()->withErrors(['error' => 'Terjadi kesalahan saat mendaftar. Silakan coba lagi.'])->withInput();
         }
 
         // Generate and send OTP

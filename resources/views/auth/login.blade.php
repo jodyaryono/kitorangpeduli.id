@@ -48,7 +48,10 @@
                 <div class="mt-6 text-center">
                     <p class="text-gray-600 text-sm">
                         Belum punya akun?
-                        <a href="{{ route('register') }}" class="text-yellow-600 font-medium hover:text-yellow-500">Daftar Sekarang</a>
+                        <a href="{{ route('register') }}{{ request('intended') ? '?intended=' . request('intended') . '&id=' . request('id') : '' }}"
+                           class="text-yellow-600 font-medium hover:text-yellow-500 underline">
+                            Daftar Sekarang
+                        </a>
                     </p>
                 </div>
             </div>

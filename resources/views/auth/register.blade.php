@@ -474,7 +474,10 @@
                 <div class="mt-6 text-center">
                     <p class="text-gray-600 text-sm">
                         Sudah punya akun?
-                        <a href="{{ route('login') }}" class="text-yellow-600 font-medium hover:text-yellow-500">Masuk</a>
+                        <a href="{{ route('login') }}{{ request('intended') ? '?intended=' . request('intended') . '&id=' . request('id') : '' }}"
+                           class="text-yellow-600 font-medium hover:text-yellow-500 underline">
+                            Masuk
+                        </a>
                     </p>
                 </div>
             </div>

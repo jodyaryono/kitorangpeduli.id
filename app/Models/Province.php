@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Province extends Model
 {
-    protected $fillable = ['code', 'name'];
+    protected $fillable = ['name'];
 
     public function regencies(): HasMany
     {

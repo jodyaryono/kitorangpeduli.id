@@ -16,7 +16,7 @@ class WilayahController extends Controller
      */
     public function provinces(): JsonResponse
     {
-        $provinces = Province::orderBy('name')->get(['id', 'code', 'name']);
+        $provinces = Province::orderBy('name')->get(['id', 'name']);
 
         return response()->json([
             'success' => true,

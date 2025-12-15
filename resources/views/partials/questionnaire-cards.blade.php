@@ -95,10 +95,10 @@
                         Mulai Isi Survey →
                     </a>
                 @else
-                    <button onclick="showAuthModal({{ $questionnaire->id }})"
-                            class="w-full bg-gradient-to-r from-gray-900 to-gray-700 text-yellow-400 text-center py-3 rounded-lg font-medium hover:from-black hover:to-gray-800 transition border border-yellow-500/50 shadow-lg hover:shadow-xl">
+                    <a href="{{ route('login') }}?intended=questionnaire&id={{ $questionnaire->id }}"
+                       class="block w-full bg-gradient-to-r from-gray-900 to-gray-700 text-yellow-400 text-center py-3 rounded-lg font-medium hover:from-black hover:to-gray-800 transition border border-yellow-500/50 shadow-lg hover:shadow-xl">
                         Mulai Isi Survey →
-                    </button>
+                    </a>
                 @endif
             @endif
         </div>

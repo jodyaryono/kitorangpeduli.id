@@ -293,6 +293,7 @@ class Respondent extends Model implements HasMedia
     {
         $this
             ->addMediaCollection('ktp_image')
+            ->useDisk('public')
             ->singleFile();
     }
 }
