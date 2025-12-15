@@ -65,7 +65,7 @@ class AuthController extends Controller
         Cache::put('otp_' . $no_hp, $otp, now()->addMinutes(5));
 
         // Send OTP via WhatsApp
-        $this->whatsAppService->sendOTP('+62' . $no_hp, $otp);
+        $this->whatsAppService->sendOTP('+' . $no_hp, $otp);
 
         return view('auth.verify-otp', ['no_hp' => $no_hp]);
     }
@@ -229,7 +229,7 @@ class AuthController extends Controller
         // Generate and send OTP
         $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
         Cache::put('otp_' . $no_hp, $otp, now()->addMinutes(5));
-        $this->whatsAppService->sendOTP('+62' . $no_hp, $otp);
+        $this->whatsAppService->sendOTP('+' . $no_hp, $otp);
 
         return view('auth.verify-otp', ['no_hp' => $no_hp])
             ->with('success', 'Pendaftaran berhasil! Silakan verifikasi nomor HP Anda.');
