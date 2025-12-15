@@ -31,6 +31,15 @@ Route::post('/questionnaire/{id}/autosave', [QuestionnaireController::class, 'au
 Route::post('/questionnaire/{id}/submit', [QuestionnaireController::class, 'submit'])->name('questionnaire.submit');
 Route::get('/questionnaire/success/{responseId}', [QuestionnaireController::class, 'success'])->name('questionnaire.success');
 
+// Officer data entry standalone page (outside Filament UI)
+Route::middleware(['auth'])->group(function () {
+    Route::get('/officer-entry', [\App\Http\Controllers\OfficerEntryController::class, 'show'])->name('officer.entry');
+    Route::get('/officer-entry/questionnaire/{id}', [\App\Http\Controllers\OfficerEntryController::class, 'selectQuestionnaire'])->name('officer.entry.questionnaire');
+    Route::post('/officer-entry', [\App\Http\Controllers\OfficerEntryController::class, 'store'])->name('officer.entry.store');
+    Route::get('/officer-entry/respondent/create', [\App\Http\Controllers\OfficerEntryController::class, 'createRespondent'])->name('officer.respondent.create');
+    Route::post('/officer-entry/respondent', [\App\Http\Controllers\OfficerEntryController::class, 'storeRespondent'])->name('officer.respondent.store');
+});
+
 // Export routes (admin only)
 Route::middleware(['auth'])->prefix('export')->name('export.')->group(function () {
     Route::get('/respondents', [ExportController::class, 'exportRespondents'])->name('respondents');

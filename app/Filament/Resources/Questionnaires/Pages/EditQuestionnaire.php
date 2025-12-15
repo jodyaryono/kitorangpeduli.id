@@ -13,7 +13,8 @@ class EditQuestionnaire extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            DeleteAction::make(),
+            DeleteAction::make()
+                ->visible(fn () => auth()->user()?->isAdmin() || auth()->user()?->isOpdAdmin()),
         ];
     }
 }

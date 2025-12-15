@@ -16,11 +16,27 @@ class User extends Authenticatable implements FilamentUser
     protected $fillable = [
         'name',
         'email',
+        'phone',
         'password',
         'role',
         'opd_id',
         'is_active',
     ];
+
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
+    }
+
+    public function isFieldOfficer(): bool
+    {
+        return $this->role === 'field_officer';
+    }
+
+    public function canAccessAllOpds(): bool
+    {
+        return $this->isAdmin() || is_null($this->opd_id);
+    }
 
     protected $hidden = [
         'password',
@@ -43,12 +59,12 @@ class User extends Authenticatable implements FilamentUser
 
     public function canAccessPanel(Panel $panel): bool
     {
-        return $this->is_active && in_array($this->role, ['admin', 'opd_admin', 'viewer']);
-    }
-
-    public function isAdmin(): bool
-    {
-        return $this->role === 'admin';
+        return $this->is_active && in_array($this->role, [
+            'admin',
+            'opd_admin',
+            'viewer',
+            'field_officer',
+        ]);
     }
 
     public function isOpdAdmin(): bool

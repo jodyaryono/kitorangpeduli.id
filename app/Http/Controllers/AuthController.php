@@ -27,8 +27,19 @@ class AuthController extends Controller
 
     public function showLogin()
     {
+        // If already logged in as officer, redirect to officer portal
+        if (auth()->check()) {
+            return redirect()->route('officer.entry');
+        }
+
+        // If already logged in as respondent, redirect to home
         if (session('respondent')) {
             return redirect()->route('home');
+        }
+
+        // Store intended destination if provided
+        if (request()->has('intended')) {
+            session(['intended' => request()->get('intended')]);
         }
 
         // Store intended questionnaire if provided
@@ -54,10 +65,11 @@ class AuthController extends Controller
             $no_hp = '62' . $no_hp;
         }
 
-        // Check if respondent exists
+        // Check if user (officer) exists first
+        $user = \App\Models\User::where('phone', $no_hp)->where('is_active', true)->first();
         $respondent = Respondent::where('phone', $no_hp)->first();
 
-        if (!$respondent) {
+        if (!$user && !$respondent) {
             return back()
                 ->withErrors(['no_hp' => 'Nomor HP belum terdaftar. Silakan daftar terlebih dahulu.'])
                 ->withInput();
@@ -68,6 +80,8 @@ class AuthController extends Controller
 
         // Store OTP in cache for 5 minutes
         Cache::put('otp_' . $no_hp, $otp, now()->addMinutes(5));
+        // Store login type (officer has priority)
+        Cache::put('login_type_' . $no_hp, $user ? 'officer' : 'respondent', now()->addMinutes(5));
 
         // Send OTP via WhatsApp
         $this->whatsAppService->sendOTP('+' . $no_hp, $otp);
@@ -84,6 +98,7 @@ class AuthController extends Controller
 
         $no_hp = $request->no_hp;
         $cachedOtp = Cache::get('otp_' . $no_hp);
+        $loginType = Cache::get('login_type_' . $no_hp, 'respondent');
 
         // For development, accept "123456" as valid OTP
         if ($request->otp !== $cachedOtp && $request->otp !== '123456') {
@@ -92,15 +107,36 @@ class AuthController extends Controller
                 ->with('no_hp', $no_hp);
         }
 
-        // Find respondent
-        $respondent = Respondent::where('phone', $no_hp)->first();
+        // Clear OTP from cache
+        Cache::forget('otp_' . $no_hp);
+        Cache::forget('login_type_' . $no_hp);
 
+        // Login as officer (User model)
+        if ($loginType === 'officer') {
+            $user = \App\Models\User::where('phone', $no_hp)->where('is_active', true)->first();
+            if (!$user) {
+                return redirect()->route('login')->withErrors(['no_hp' => 'Akun petugas tidak ditemukan atau tidak aktif.']);
+            }
+
+            // Laravel's standard auth login
+            auth()->login($user);
+
+            // Check if there's an intended destination
+            if ($request->get('intended') === 'officer-entry' || session('intended') === 'officer-entry') {
+                session()->forget('intended');
+                return redirect()->route('officer.entry')
+                    ->with('success', 'Selamat datang, ' . $user->name . '! (Petugas OPD)');
+            }
+
+            return redirect()->route('officer.entry')
+                ->with('success', 'Selamat datang, ' . $user->name . '! (Petugas OPD)');
+        }
+
+        // Login as respondent
+        $respondent = Respondent::where('phone', $no_hp)->first();
         if (!$respondent) {
             return redirect()->route('register')->withErrors(['no_hp' => 'Nomor HP tidak ditemukan.']);
         }
-
-        // Clear OTP from cache
-        Cache::forget('otp_' . $no_hp);
 
         // Update verification status
         $respondent->update([
@@ -242,7 +278,16 @@ class AuthController extends Controller
 
     public function logout()
     {
+        // Logout Laravel auth (for officers)
+        if (auth()->check()) {
+            auth()->logout();
+            request()->session()->invalidate();
+            request()->session()->regenerateToken();
+        }
+
+        // Clear respondent session
         session()->forget('respondent');
+
         return redirect()->route('home')->with('success', 'Anda telah keluar.');
     }
 

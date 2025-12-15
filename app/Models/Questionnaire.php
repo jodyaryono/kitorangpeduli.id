@@ -21,6 +21,7 @@ class Questionnaire extends Model implements HasMedia
         'start_date',
         'end_date',
         'is_active',
+        'visibility',
         'requires_location',
         'requires_verified_respondent',
         'max_responses',
@@ -33,6 +34,21 @@ class Questionnaire extends Model implements HasMedia
         'requires_location' => 'boolean',
         'requires_verified_respondent' => 'boolean',
     ];
+
+    // Scopes for entry visibility
+    public function scopeForOfficers($query, ?int $opdId)
+    {
+        return $query
+            ->when($opdId, fn($q) => $q->where(function ($inner) use ($opdId) {
+                $inner->whereNull('opd_id')->orWhere('opd_id', $opdId);
+            }))
+            ->whereIn('visibility', ['officer_assisted', 'both']);
+    }
+
+    public function scopeForRespondents($query)
+    {
+        return $query->whereIn('visibility', ['self_entry', 'both']);
+    }
 
     public function opd(): BelongsTo
     {

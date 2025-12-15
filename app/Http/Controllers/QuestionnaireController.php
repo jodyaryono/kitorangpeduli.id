@@ -13,8 +13,14 @@ class QuestionnaireController extends Controller
 {
     public function start($id)
     {
-        // Check if logged in
-        if (!session('respondent')) {
+        // Check if officer-assisted mode
+        $isOfficerAssisted = session('officer_assisted', false);
+        $respondentData = $isOfficerAssisted
+            ? session('officer_respondent')
+            : session('respondent');
+
+        // Check if logged in (either as respondent or officer-assisted)
+        if (!$respondentData && !auth()->check()) {
             session(['intended_questionnaire' => $id]);
             return redirect()
                 ->route('login', ['intended' => 'questionnaire', 'id' => $id])
@@ -25,44 +31,62 @@ class QuestionnaireController extends Controller
             $query->orderBy('order')->with('options');
         }, 'opd'])->findOrFail($id);
 
+        $respondentId = $respondentData['id'] ?? session('respondent.id');
+
         // Check if already completed
         $existingResponse = Response::where('questionnaire_id', $id)
-            ->where('respondent_id', session('respondent.id'))
+            ->where('respondent_id', $respondentId)
             ->where('status', 'completed')
             ->first();
 
         if ($existingResponse) {
+            $redirectRoute = $isOfficerAssisted ? 'officer.entry' : 'home';
             return redirect()
-                ->route('home')
-                ->with('error', 'Anda sudah mengisi kuesioner ini.');
+                ->route($redirectRoute)
+                ->with('error', 'Responden ini sudah mengisi kuesioner ini.');
         }
 
         // Get or create in-progress response
-        $response = Response::firstOrCreate([
-            'questionnaire_id' => $id,
-            'respondent_id' => session('respondent.id'),
-            'status' => 'in_progress',
-        ], [
-            'started_at' => now(),
-        ]);
+        $response = Response::where('questionnaire_id', $id)
+            ->where('respondent_id', $respondentId)
+            ->where('status', 'in_progress')
+            ->first();
+
+        if (!$response) {
+            $response = Response::create([
+                'questionnaire_id' => $id,
+                'respondent_id' => $respondentId,
+                'status' => 'in_progress',
+                'started_at' => now(),
+                'entered_by_user_id' => $isOfficerAssisted ? auth()->id() : null,
+            ]);
+        }
 
         // Load existing answers for this response
         $existingAnswers = Answer::where('response_id', $response->id)
             ->get()
             ->keyBy('question_id');
 
-        return view('questionnaire.fill', compact('questionnaire', 'response', 'existingAnswers'));
+        return view('questionnaire.fill', compact('questionnaire', 'response', 'existingAnswers', 'isOfficerAssisted', 'respondentData'));
     }
 
     public function autosave(Request $request, $id)
     {
-        if (!session('respondent')) {
+        // Check if officer-assisted or regular respondent
+        $isOfficerAssisted = session('officer_assisted', false);
+        $respondentData = $isOfficerAssisted
+            ? session('officer_respondent')
+            : session('respondent');
+
+        if (!$respondentData && !auth()->check()) {
             return response()->json(['success' => false, 'message' => 'Not authenticated'], 401);
         }
 
+        $respondentId = $respondentData['id'] ?? session('respondent.id');
+
         try {
             $response = Response::where('questionnaire_id', $id)
-                ->where('respondent_id', session('respondent.id'))
+                ->where('respondent_id', $respondentId)
                 ->where('status', 'in_progress')
                 ->first();
 
@@ -116,9 +140,17 @@ class QuestionnaireController extends Controller
 
     public function submit(Request $request, $id)
     {
-        if (!session('respondent')) {
+        // Check if officer-assisted or regular respondent
+        $isOfficerAssisted = session('officer_assisted', false);
+        $respondentData = $isOfficerAssisted
+            ? session('officer_respondent')
+            : session('respondent');
+
+        if (!$respondentData && !auth()->check()) {
             return redirect()->route('login');
         }
+
+        $respondentId = $respondentData['id'] ?? session('respondent.id');
 
         $questionnaire = Questionnaire::with('questions')->findOrFail($id);
 
@@ -138,16 +170,17 @@ class QuestionnaireController extends Controller
         try {
             // Get or create response
             $response = Response::where('questionnaire_id', $id)
-                ->where('respondent_id', session('respondent.id'))
+                ->where('respondent_id', $respondentId)
                 ->where('status', 'in_progress')
                 ->first();
 
             if (!$response) {
                 $response = Response::create([
                     'questionnaire_id' => $id,
-                    'respondent_id' => session('respondent.id'),
+                    'respondent_id' => $respondentId,
                     'status' => 'in_progress',
                     'started_at' => now(),
+                    'entered_by_user_id' => $isOfficerAssisted ? auth()->id() : null,
                 ]);
             }
 
@@ -206,6 +239,11 @@ class QuestionnaireController extends Controller
 
             DB::commit();
 
+            // Clear officer-assisted session if applicable
+            if ($isOfficerAssisted) {
+                session()->forget(['officer_assisted', 'officer_response_id', 'officer_respondent']);
+            }
+
             return redirect()->route('questionnaire.success', $response->id);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -215,10 +253,23 @@ class QuestionnaireController extends Controller
 
     public function success($responseId)
     {
-        $response = Response::with(['questionnaire', 'respondent'])
-            ->where('respondent_id', session('respondent.id'))
-            ->findOrFail($responseId);
+        // Check if officer-assisted or regular respondent
+        $isOfficerAssisted = session('officer_assisted', false);
+        $respondentData = $isOfficerAssisted
+            ? session('officer_respondent')
+            : session('respondent');
 
-        return view('questionnaire.success', compact('response'));
+        $respondentId = $respondentData['id'] ?? session('respondent.id');
+
+        $response = Response::with(['questionnaire', 'respondent'])
+            ->where('id', $responseId)
+            ->firstOrFail();
+
+        // Verify ownership or officer access
+        if (!$isOfficerAssisted && $response->respondent_id != $respondentId) {
+            abort(403, 'Unauthorized access');
+        }
+
+        return view('questionnaire.success', compact('response', 'isOfficerAssisted'));
     }
 }

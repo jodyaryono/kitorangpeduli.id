@@ -12,8 +12,10 @@ return new class extends Migration {
     {
         // Add code column to provinces (same as id for backward compatibility)
         Schema::table('provinces', function (Blueprint $table) {
-            $table->char('code', 2)->after('id')->nullable();
-            $table->index('code');
+            if (!Schema::hasColumn('provinces', 'code')) {
+                $table->char('code', 2)->after('id')->nullable();
+                $table->index('code');
+            }
         });
 
         // Update existing data: set code = id
@@ -21,13 +23,17 @@ return new class extends Migration {
 
         // Make code non-nullable after data update
         Schema::table('provinces', function (Blueprint $table) {
-            $table->char('code', 2)->nullable(false)->change();
+            if (Schema::hasColumn('provinces', 'code')) {
+                $table->char('code', 2)->nullable(false)->change();
+            }
         });
 
         // Add code column to regencies
         Schema::table('regencies', function (Blueprint $table) {
-            $table->char('code', 4)->after('id')->nullable();
-            $table->unique('code');
+            if (!Schema::hasColumn('regencies', 'code')) {
+                $table->char('code', 4)->after('id')->nullable();
+                $table->unique('code');
+            }
         });
 
         // Update existing regencies: set code based on id (formatted as 4 digits)
@@ -35,8 +41,10 @@ return new class extends Migration {
 
         // Add code column to districts
         Schema::table('districts', function (Blueprint $table) {
-            $table->char('code', 7)->after('id')->nullable();
-            $table->index('code');
+            if (!Schema::hasColumn('districts', 'code')) {
+                $table->char('code', 7)->after('id')->nullable();
+                $table->index('code');
+            }
         });
 
         // Update existing districts: set code based on id (formatted as 7 digits)
@@ -44,8 +52,10 @@ return new class extends Migration {
 
         // Add code column to villages
         Schema::table('villages', function (Blueprint $table) {
-            $table->char('code', 10)->after('id')->nullable();
-            $table->index('code');
+            if (!Schema::hasColumn('villages', 'code')) {
+                $table->char('code', 10)->after('id')->nullable();
+                $table->index('code');
+            }
         });
 
         // Update existing villages: set code based on id (formatted as 10 digits)

@@ -65,6 +65,17 @@ class QuestionnaireForm
                                 ->displayFormat('d/m/Y')
                                 ->native(false),
                         ]),
+                        Grid::make(3)->schema([
+                            Select::make('visibility')
+                                ->label('Visibility Entry')
+                                ->options([
+                                    'self_entry' => 'Responden Isi Sendiri',
+                                    'officer_assisted' => 'Officer-Assisted',
+                                    'both' => 'Keduanya',
+                                ])
+                                ->default('self_entry')
+                                ->required(),
+                        ]),
                         Grid::make(4)->schema([
                             Toggle::make('is_active')
                                 ->label('Aktif')

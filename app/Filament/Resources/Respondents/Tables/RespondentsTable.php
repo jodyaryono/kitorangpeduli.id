@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Respondents\Tables;
 
 use App\Models\Respondent;
+use Illuminate\Support\Facades\Schema;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -17,6 +18,19 @@ class RespondentsTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(function ($query) {
+                $user = auth()->user();
+
+                if (!$user || $user->canAccessAllOpds()) {
+                    return $query;
+                }
+
+                if (Schema::hasColumn('respondents', 'opd_id')) {
+                    return $query->where('opd_id', $user->opd_id);
+                }
+
+                return $query; // if no opd_id column, no scoping applied
+            })
             ->columns([
                 TextColumn::make('nik')
                     ->label('NIK')

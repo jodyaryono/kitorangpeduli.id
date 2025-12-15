@@ -42,6 +42,15 @@
                 Berpartisipasi dalam survey untuk membantu pembangunan Kota Jayapura yang lebih baik.
                 Setiap jawaban Anda berkontribusi untuk kemajuan bersama.
             </p>
+            <div class="flex flex-wrap items-center justify-center gap-3 mt-6">
+                <a href="#questionnaire-grid" class="px-6 py-3 bg-yellow-500 text-black font-semibold rounded-lg hover:bg-yellow-400 transition shadow-lg">Lihat Kuesioner</a>
+                @auth
+                    <a href="{{ route('officer.entry') }}" class="px-6 py-3 bg-gray-100 text-gray-900 font-semibold rounded-lg hover:bg-white transition shadow-lg border border-yellow-400/40">Portal Petugas OPD</a>
+                @else
+                    <a href="{{ route('login', ['intended' => 'officer-entry']) }}" class="px-6 py-3 bg-gray-100 text-gray-900 font-semibold rounded-lg hover:bg-white transition shadow-lg border border-yellow-400/40">Masuk Petugas OPD</a>
+                @endauth
+            </div>
+            <p class="text-xs text-gray-300 mt-2">Petugas OPD wajib login dengan nomor HP terdaftar.</p>
         </div>
     </div>
 </div>

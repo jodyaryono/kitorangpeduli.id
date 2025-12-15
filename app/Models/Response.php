@@ -17,6 +17,7 @@ class Response extends Model
     protected $fillable = [
         'questionnaire_id',
         'respondent_id',
+        'entered_by_user_id',
         'status',
         'is_valid',
         'validation_notes',
@@ -49,6 +50,11 @@ class Response extends Model
         return $this->belongsTo(Respondent::class);
     }
 
+    public function enteredBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'entered_by_user_id');
+    }
+
     public function lastQuestion(): BelongsTo
     {
         return $this->belongsTo(Question::class, 'last_question_id');
@@ -79,6 +85,11 @@ class Response extends Model
     public function isCompleted(): bool
     {
         return $this->status === 'completed';
+    }
+
+    public function isOfficerAssisted(): bool
+    {
+        return !is_null($this->entered_by_user_id);
     }
 
     public function calculateProgress(): float

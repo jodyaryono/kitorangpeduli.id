@@ -73,7 +73,17 @@
                     </a>
                 </div>
                 <div class="flex items-center space-x-4">
-                    @if(session('respondent'))
+                    @auth
+                        {{-- Officer logged in via Laravel auth --}}
+                        <a href="{{ route('officer.entry') }}" class="text-yellow-400 hover:text-yellow-300 text-sm font-medium transition flex items-center gap-1">
+                            <span>🏢</span> Portal Officer
+                        </a>
+                        <span class="text-yellow-400 text-sm font-medium">{{ auth()->user()->name }}</span>
+                        <a href="{{ route('logout') }}" class="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-700 transition border border-red-500">
+                            Keluar
+                        </a>
+                    @elseif(session('respondent'))
+                        {{-- Respondent logged in via session --}}
                         <a href="{{ route('profile.show') }}" class="text-yellow-400 hover:text-yellow-300 text-sm font-medium transition flex items-center gap-1">
                             <span>👤</span> Profil
                         </a>

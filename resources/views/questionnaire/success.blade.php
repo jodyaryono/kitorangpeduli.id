@@ -23,17 +23,28 @@
             </div>
 
             <div class="space-y-3">
-                <a href="{{ route('home') }}"
-                   class="block w-full bg-gray-900 text-yellow-400 py-3 rounded-lg font-medium hover:bg-black transition border border-yellow-500">
-                    Kembali ke Beranda
-                </a>
+                @if(isset($isOfficerAssisted) && $isOfficerAssisted)
+                    <a href="{{ route('officer.entry') }}"
+                       class="block w-full bg-amber-500 text-black py-3 rounded-lg font-semibold hover:bg-amber-400 transition shadow-lg">
+                        Isi Kuesioner Lain (Responden Baru)
+                    </a>
+                    <a href="{{ url('/admin') }}"
+                       class="block w-full bg-gray-100 text-gray-900 py-3 rounded-lg font-medium hover:bg-white transition border border-gray-300">
+                        Kembali ke Dashboard Admin
+                    </a>
+                @else
+                    <a href="{{ route('home') }}"
+                       class="block w-full bg-gray-900 text-yellow-400 py-3 rounded-lg font-medium hover:bg-black transition border border-yellow-500">
+                        Kembali ke Beranda
+                    </a>
+                @endif
                 <div class="flex justify-center gap-2 mt-4">
                     <span class="w-6 h-1 bg-black rounded"></span>
                     <span class="w-6 h-1 bg-yellow-500 rounded"></span>
                     <span class="w-6 h-1 bg-red-600 rounded"></span>
                 </div>
                 <p class="text-gray-500 text-sm mt-2">
-                    Kontribusi Anda sangat berarti untuk pembangunan Kota Jayapura 🦅
+                    {{ isset($isOfficerAssisted) && $isOfficerAssisted ? 'Data berhasil diinput oleh petugas' : 'Kontribusi Anda sangat berarti untuk pembangunan Kota Jayapura' }} 🦅
                 </p>
             </div>
         </div>
