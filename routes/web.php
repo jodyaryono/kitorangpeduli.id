@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ExportController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\QuestionnaireController;
+use App\Http\Controllers\QuestionnairePreviewController;
 use Illuminate\Support\Facades\Route;
 
 // Public routes
@@ -26,6 +27,7 @@ Route::get('/profile', [AuthController::class, 'showProfile'])->name('profile.sh
 Route::post('/profile', [AuthController::class, 'updateProfile'])->name('profile.update');
 
 // Questionnaire routes
+Route::get('/questionnaire/{questionnaire}/preview', [QuestionnairePreviewController::class, 'show'])->name('questionnaire.preview')->middleware('auth');
 Route::get('/questionnaire/{id}/start', [QuestionnaireController::class, 'start'])->name('questionnaire.start');
 Route::post('/questionnaire/{id}/autosave', [QuestionnaireController::class, 'autosave'])->name('questionnaire.autosave');
 Route::post('/questionnaire/{id}/submit', [QuestionnaireController::class, 'submit'])->name('questionnaire.submit');

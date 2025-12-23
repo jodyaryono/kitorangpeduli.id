@@ -13,9 +13,9 @@ class CitizenType extends Model
         'is_active' => 'boolean',
     ];
 
-    public function respondents(): HasMany
+    public function residents(): HasMany
     {
-        return $this->hasMany(Respondent::class);
+        return $this->hasMany(Resident::class);
     }
 
     public function scopeActive($query)

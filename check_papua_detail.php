@@ -3,32 +3,31 @@ require 'vendor/autoload.php';
 $app = require_once 'bootstrap/app.php';
 $app->make('Illuminate\Contracts\Console\Kernel')->bootstrap();
 
-echo "=== Province 34 Detail ===\n";
-$prov34 = DB::table('provinces')->where('id', 34)->first();
-print_r($prov34);
+echo "=== ALL PAPUA PROVINCES ===\n";
+$papuas = DB::table('provinces')->where('name', 'like', '%PAPUA%')->get();
+foreach ($papuas as $p) {
+    echo sprintf("\nID: %s, Code: %s, Name: %s\n", $p->id, $p->code, $p->name);
 
-echo "\n=== Regencies under province_id 34 ===\n";
-$reg34 = DB::table('regencies')->where('province_id', 34)->get();
-foreach ($reg34 as $r) {
-    echo sprintf("ID:%s Code:%s Name:%s\n", $r->id, $r->code, $r->name);
+    // Count regencies
+    $regCount = DB::table('regencies')->where('province_id', $p->id)->count();
+    echo "  Total regencies: $regCount\n";
+
+    // Get Jayapura regencies
+    $jays = DB::table('regencies')
+        ->where('province_id', $p->id)
+        ->where('name', 'like', '%JAYAPURA%')
+        ->get();
+
+    if ($jays->count() > 0) {
+        echo "  Jayapura regencies:\n";
+        foreach ($jays as $j) {
+            echo "    - {$j->code}: {$j->name}\n";
+        }
+    }
 }
 
-echo "\n=== Search for Bantul regency ===\n";
-$bantul = DB::table('regencies')->where('name', 'like', '%BANTUL%')->get();
-foreach ($bantul as $r) {
-    echo sprintf("ID:%s Code:%s Name:%s Province_ID:%s\n", $r->id, $r->code, $r->name, $r->province_id);
-}
-
-echo "\n=== All regencies with code 92xx (Papua Barat) ===\n";
-$reg92 = DB::table('regencies')->where('code', 'like', '92%')->get();
-echo "Count: " . $reg92->count() . "\n";
-foreach ($reg92 as $r) {
-    echo sprintf("ID:%s Code:%s Name:%s Province_ID:%s\n", $r->id, $r->code, $r->name, $r->province_id);
-}
-
-echo "\n=== All regencies with code 34xx (Yogyakarta) ===\n";
-$reg34code = DB::table('regencies')->where('code', 'like', '34%')->get();
-echo "Count: " . $reg34code->count() . "\n";
-foreach ($reg34code as $r) {
-    echo sprintf("ID:%s Code:%s Name:%s Province_ID:%s\n", $r->id, $r->code, $r->name, $r->province_id);
+echo "\n=== DIRECT CHECK: JAYAPURA REGENCIES ===\n";
+$jayapuras = DB::table('regencies')->where('name', 'like', '%JAYAPURA%')->get();
+foreach ($jayapuras as $j) {
+    echo sprintf("%s: %s (province_id: %s)\n", $j->code, $j->name, $j->province_id);
 }

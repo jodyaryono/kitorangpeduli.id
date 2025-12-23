@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\KartuKeluarga;
+use App\Models\Family;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -27,7 +27,7 @@ class KartuKeluargaController extends Controller
             ], 422);
         }
 
-        $kk = KartuKeluarga::where('no_kk', $request->no_kk)
+        $kk = Family::where('no_kk', $request->no_kk)
             ->with(['province', 'regency', 'district', 'village'])
             ->first();
 
@@ -59,7 +59,7 @@ class KartuKeluargaController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'no_kk' => 'required|string|size:16|unique:kartu_keluarga,no_kk',
+            'no_kk' => 'required|string|size:16|unique:families,no_kk',
             'kepala_keluarga' => 'required|string|max:100',
             'alamat' => 'required|string',
             'rt' => 'nullable|string|max:3',
@@ -80,7 +80,7 @@ class KartuKeluargaController extends Controller
             ], 422);
         }
 
-        $kk = KartuKeluarga::create($request->except('kk_image'));
+        $kk = Family::create($request->except('kk_image'));
 
         // Handle image upload
         if ($request->hasFile('kk_image')) {
@@ -102,9 +102,9 @@ class KartuKeluargaController extends Controller
     /**
      * Get KK members
      */
-    public function members(KartuKeluarga $kartuKeluarga): JsonResponse
+    public function members(KartuKeluarga $family): JsonResponse
     {
-        $members = $kartuKeluarga
+        $members = $family
             ->anggota()
             ->with('citizenType')
             ->get()
@@ -123,8 +123,8 @@ class KartuKeluargaController extends Controller
             'success' => true,
             'data' => [
                 'kk' => [
-                    'no_kk' => $kartuKeluarga->no_kk,
-                    'kepala_keluarga' => $kartuKeluarga->kepala_keluarga,
+                    'no_kk' => $family->no_kk,
+                    'kepala_keluarga' => $family->kepala_keluarga,
                 ],
                 'members' => $members,
             ],

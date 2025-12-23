@@ -2,12 +2,14 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Response extends Model
 {
+    use SoftDeletes;
     public const STATUSES = [
         'in_progress' => 'Sedang Mengisi',
         'completed' => 'Selesai',
@@ -16,7 +18,7 @@ class Response extends Model
 
     protected $fillable = [
         'questionnaire_id',
-        'respondent_id',
+        'resident_id',
         'entered_by_user_id',
         'status',
         'is_valid',
@@ -27,8 +29,13 @@ class Response extends Model
         'longitude',
         'device_info',
         'ip_address',
+        'family_members',
+        'health_data',
+        'officer_notes',
         'started_at',
         'completed_at',
+        'updated_by_user_id',
+        'deleted_by_user_id',
     ];
 
     protected $casts = [
@@ -36,6 +43,8 @@ class Response extends Model
         'latitude' => 'decimal:8',
         'longitude' => 'decimal:8',
         'is_valid' => 'boolean',
+        'family_members' => 'array',
+        'health_data' => 'array',
         'started_at' => 'datetime',
         'completed_at' => 'datetime',
     ];
@@ -45,9 +54,9 @@ class Response extends Model
         return $this->belongsTo(Questionnaire::class);
     }
 
-    public function respondent(): BelongsTo
+    public function resident(): BelongsTo
     {
-        return $this->belongsTo(Respondent::class);
+        return $this->belongsTo(Resident::class, 'resident_id');
     }
 
     public function enteredBy(): BelongsTo
@@ -58,6 +67,16 @@ class Response extends Model
     public function lastQuestion(): BelongsTo
     {
         return $this->belongsTo(Question::class, 'last_question_id');
+    }
+
+    public function updatedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'updated_by_user_id');
+    }
+
+    public function deletedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'deleted_by_user_id');
     }
 
     public function answers(): HasMany

@@ -2,7 +2,7 @@
 
 namespace App\Filament\Resources\Respondents\Tables;
 
-use App\Models\Respondent;
+use App\Models\Resident;
 use Illuminate\Support\Facades\Schema;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -72,7 +72,7 @@ class RespondentsTable
                         'rejected' => 'danger',
                         default => 'warning',
                     })
-                    ->formatStateUsing(fn($state) => Respondent::VERIFICATION_STATUSES[$state] ?? $state),
+                    ->formatStateUsing(fn($state) => Resident::VERIFICATION_STATUSES[$state] ?? $state),
                 TextColumn::make('phone_verified_at')
                     ->label('📱 OTP')
                     ->dateTime('d/m/y')
@@ -88,13 +88,13 @@ class RespondentsTable
             ->filters([
                 SelectFilter::make('verification_status')
                     ->label('Status Verifikasi')
-                    ->options(Respondent::VERIFICATION_STATUSES),
+                    ->options(Resident::VERIFICATION_STATUSES),
                 SelectFilter::make('citizen_type_id')
                     ->label('Tipe Warga')
                     ->relationship('citizenType', 'name'),
                 SelectFilter::make('jenis_kelamin')
                     ->label('Jenis Kelamin')
-                    ->options(Respondent::GENDERS),
+                    ->options(Resident::GENDERS),
             ])
             ->actions([
                 ViewAction::make(),

@@ -24,7 +24,7 @@ class QuestionnaireController extends Controller
             ->available()
             ->get()
             ->map(function ($q) use ($respondent) {
-                $response = $q->responses()->where('respondent_id', $respondent->id)->first();
+                $response = $q->responses()->where('resident_id', $respondent->id)->first();
 
                 return [
                     'id' => $q->id,
@@ -73,7 +73,7 @@ class QuestionnaireController extends Controller
         // Get existing response if any
         $response = $questionnaire
             ->responses()
-            ->where('respondent_id', $respondent->id)
+            ->where('resident_id', $respondent->id)
             ->first();
 
         $questions = $questionnaire
@@ -167,7 +167,7 @@ class QuestionnaireController extends Controller
         $response = Response::firstOrCreate(
             [
                 'questionnaire_id' => $questionnaire->id,
-                'respondent_id' => $respondent->id,
+                'resident_id' => $respondent->id,
             ],
             [
                 'status' => 'in_progress',
@@ -202,7 +202,7 @@ class QuestionnaireController extends Controller
      */
     public function saveAnswer(Request $request, Response $response): JsonResponse
     {
-        if ($response->respondent_id !== $request->user()->id) {
+        if ($response->resident_id !== $request->user()->id) {
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthorized',
@@ -287,7 +287,7 @@ class QuestionnaireController extends Controller
      */
     public function complete(Request $request, Response $response): JsonResponse
     {
-        if ($response->respondent_id !== $request->user()->id) {
+        if ($response->resident_id !== $request->user()->id) {
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthorized',

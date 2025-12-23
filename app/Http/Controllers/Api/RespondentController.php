@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\KartuKeluarga;
-use App\Models\Respondent;
+use App\Models\Family;
+use App\Models\Resident;
 use App\Services\WhatsAppService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -59,7 +59,7 @@ class RespondentController extends Controller
         }
 
         // Check or create KK
-        $kk = KartuKeluarga::where('no_kk', $request->no_kk)->first();
+        $kk = Family::where('no_kk', $request->no_kk)->first();
         if (!$kk) {
             return response()->json([
                 'success' => false,
@@ -68,8 +68,8 @@ class RespondentController extends Controller
         }
 
         // Create respondent
-        $respondent = Respondent::create([
-            'kartu_keluarga_id' => $kk->id,
+        $respondent = Resident::create([
+            'families_id' => $kk->id,
             'citizen_type_id' => $request->citizen_type_id,
             'nik' => $request->nik,
             'nama_lengkap' => $request->nama_lengkap,

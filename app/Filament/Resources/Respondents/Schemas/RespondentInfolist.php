@@ -2,7 +2,7 @@
 
 namespace App\Filament\Resources\Respondents\Schemas;
 
-use App\Models\Respondent;
+use App\Models\Resident;
 use Filament\Infolists\Components\Group;
 use Filament\Infolists\Components\ImageEntry;
 use Filament\Infolists\Components\TextEntry;
@@ -40,7 +40,7 @@ class RespondentInfolist
                     ->placeholder('-'),
                 TextEntry::make('jenis_kelamin')
                     ->label('Jenis Kelamin')
-                    ->formatStateUsing(fn($state) => Respondent::GENDERS[$state] ?? $state)
+                    ->formatStateUsing(fn($state) => Resident::GENDERS[$state] ?? $state)
                     ->placeholder('-'),
                 TextEntry::make('golongan_darah')
                     ->label('Golongan Darah')
@@ -59,7 +59,7 @@ class RespondentInfolist
                     ->placeholder('-'),
                 TextEntry::make('kewarganegaraan')
                     ->label('Kewarganegaraan')
-                    ->formatStateUsing(fn($state) => Respondent::NATIONALITIES[$state] ?? $state),
+                    ->formatStateUsing(fn($state) => Resident::NATIONALITIES[$state] ?? $state),
                 // Alamat
                 TextEntry::make('alamat')
                     ->label('Alamat')
@@ -115,7 +115,7 @@ class RespondentInfolist
                         'rejected' => 'danger',
                         default => 'warning',
                     })
-                    ->formatStateUsing(fn($state) => Respondent::VERIFICATION_STATUSES[$state] ?? $state),
+                    ->formatStateUsing(fn($state) => Resident::VERIFICATION_STATUSES[$state] ?? $state),
                 TextEntry::make('verifier.name')
                     ->label('Diverifikasi Oleh')
                     ->placeholder('-'),
@@ -144,3 +144,4 @@ class RespondentInfolist
             ]);
     }
 }
+

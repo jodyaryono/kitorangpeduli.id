@@ -2,9 +2,11 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CitizenTypeController;
-use App\Http\Controllers\Api\KartuKeluargaController;
+use App\Http\Controllers\Api\FamilyController;
+use App\Http\Controllers\Api\FieldOfficerController;
+use App\Http\Controllers\Api\PuskesmasController;
 use App\Http\Controllers\Api\QuestionnaireController;
-use App\Http\Controllers\Api\RespondentController;
+use App\Http\Controllers\Api\ResidentController;
 use App\Http\Controllers\Api\WilayahController;
 use Illuminate\Support\Facades\Route;
 
@@ -22,10 +24,15 @@ Route::prefix('auth')->group(function () {
 });
 
 // Registration (before auth)
-Route::post('/respondents/register', [RespondentController::class, 'register']);
+Route::post('/residents/register', [ResidentController::class, 'register']);
 
 // Master data (public)
 Route::get('/citizen-types', [CitizenTypeController::class, 'index']);
+
+// Occupations (public)
+Route::get('/occupations', function() {
+    return App\Models\Occupation::select('id', 'name')->orderBy('name')->get();
+});
 
 // Wilayah (public)
 Route::prefix('wilayah')->group(function () {
@@ -36,21 +43,29 @@ Route::prefix('wilayah')->group(function () {
     Route::get('/search-villages/{query}', [WilayahController::class, 'searchVillages']);
 });
 
-// KK check (public)
-Route::post('/kartu-keluarga/check', [KartuKeluargaController::class, 'check']);
-Route::post('/kartu-keluarga', [KartuKeluargaController::class, 'store']);
+// Puskesmas (public for read, protected for create)
+Route::get('/puskesmas', [PuskesmasController::class, 'index']);
+Route::get('/puskesmas/{id}', [PuskesmasController::class, 'show']);
+
+// Field Officers (public for read)
+Route::get('/field-officers', [FieldOfficerController::class, 'index']);
+Route::get('/field-officers/{id}', [FieldOfficerController::class, 'show']);
+
+// Family check (public)
+Route::post('/families/check', [FamilyController::class, 'check']);
+Route::post('/families', [FamilyController::class, 'store']);
 
 // Protected routes (require auth)
 Route::middleware('auth:sanctum')->group(function () {
     // Auth
     Route::post('/auth/logout', [AuthController::class, 'logout']);
 
-    // Respondent profile
-    Route::get('/respondents/profile', [RespondentController::class, 'profile']);
-    Route::put('/respondents/location', [RespondentController::class, 'updateLocation']);
+    // Resident profile
+    Route::get('/residents/profile', [ResidentController::class, 'profile']);
+    Route::put('/residents/location', [ResidentController::class, 'updateLocation']);
 
-    // KK members
-    Route::get('/kartu-keluarga/{kartuKeluarga}/members', [KartuKeluargaController::class, 'members']);
+    // Family members
+    Route::get('/families/{family}/members', [FamilyController::class, 'members']);
 
     // Questionnaires
     Route::get('/questionnaires', [QuestionnaireController::class, 'index']);
@@ -60,4 +75,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Responses
     Route::put('/responses/{response}/answer', [QuestionnaireController::class, 'saveAnswer']);
     Route::post('/responses/{response}/complete', [QuestionnaireController::class, 'complete']);
+
+    // Puskesmas (create on-the-fly)
+    Route::post('/puskesmas', [PuskesmasController::class, 'store']);
 });

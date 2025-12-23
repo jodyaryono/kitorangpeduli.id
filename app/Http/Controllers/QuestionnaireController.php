@@ -17,7 +17,7 @@ class QuestionnaireController extends Controller
         $isOfficerAssisted = session('officer_assisted', false);
         $respondentData = $isOfficerAssisted
             ? session('officer_respondent')
-            : session('respondent');
+            : session('resident');
 
         // Check if logged in (either as respondent or officer-assisted)
         if (!$respondentData && !auth()->check()) {
@@ -27,39 +27,80 @@ class QuestionnaireController extends Controller
                 ->with('info', 'Silakan masuk atau daftar terlebih dahulu untuk mengisi survey.');
         }
 
-        $questionnaire = Questionnaire::with(['questions' => function ($query) {
-            $query->orderBy('order')->with('options');
-        }, 'opd'])->findOrFail($id);
+        $questionnaire = Questionnaire::with([
+            'questions' => function ($query) {
+                $query->whereNull('parent_section_id')
+                    ->orderBy('order')
+                    ->with([
+                        'options',
+                        'childQuestions' => function ($q) {
+                            $q->orderBy('order')->with('options');
+                        },
+                    ]);
+            },
+            'opd'
+        ])->findOrFail($id);
 
         $respondentId = $respondentData['id'] ?? session('respondent.id');
 
-        // Check if already completed
-        $existingResponse = Response::where('questionnaire_id', $id)
-            ->where('respondent_id', $respondentId)
-            ->where('status', 'completed')
-            ->first();
+        // For officer_assisted with target_type=family, resident_id can be null
+        if ($questionnaire->visibility === 'officer_assisted' && $questionnaire->target_type === 'family') {
+            // Check for existing in-progress response for this officer
+            $response = Response::where('questionnaire_id', $id)
+                ->where('entered_by_user_id', auth()->id())
+                ->where('status', 'in_progress')
+                ->whereNull('resident_id')
+                ->first();
 
-        if ($existingResponse) {
-            $redirectRoute = $isOfficerAssisted ? 'officer.entry' : 'home';
-            return redirect()
-                ->route($redirectRoute)
-                ->with('error', 'Responden ini sudah mengisi kuesioner ini.');
+            if (!$response) {
+                $response = Response::create([
+                    'questionnaire_id' => $id,
+                    'resident_id' => null,
+                    'status' => 'in_progress',
+                    'started_at' => now(),
+                    'entered_by_user_id' => auth()->id(),
+                ]);
+            }
+        } else {
+            // Regular flow with resident_id
+            // Check if already completed
+            $existingResponse = Response::where('questionnaire_id', $id)
+                ->where('resident_id', $respondentId)
+                ->where('status', 'completed')
+                ->first();
+
+            if ($existingResponse) {
+                $redirectRoute = $isOfficerAssisted ? 'officer.entry' : 'home';
+                return redirect()
+                    ->route($redirectRoute)
+                    ->with('error', 'Responden ini sudah mengisi kuesioner ini.');
+            }
+
+            // Get or create in-progress response
+            $response = Response::where('questionnaire_id', $id)
+                ->where('resident_id', $respondentId)
+                ->where('status', 'in_progress')
+                ->first();
+
+            if (!$response) {
+                $response = Response::create([
+                    'questionnaire_id' => $id,
+                    'resident_id' => $respondentId,
+                    'status' => 'in_progress',
+                    'started_at' => now(),
+                    'entered_by_user_id' => $isOfficerAssisted ? auth()->id() : null,
+                ]);
+            }
         }
 
-        // Get or create in-progress response
-        $response = Response::where('questionnaire_id', $id)
-            ->where('respondent_id', $respondentId)
-            ->where('status', 'in_progress')
-            ->first();
-
-        if (!$response) {
-            $response = Response::create([
-                'questionnaire_id' => $id,
-                'respondent_id' => $respondentId,
-                'status' => 'in_progress',
-                'started_at' => now(),
-                'entered_by_user_id' => $isOfficerAssisted ? auth()->id() : null,
-            ]);
+        // Flatten all questions for counting actual questions (non-sections)
+        $actualQuestions = collect();
+        foreach ($questionnaire->questions as $section) {
+            foreach ($section->childQuestions as $child) {
+                if (!$child->is_section) {
+                    $actualQuestions->push($child);
+                }
+            }
         }
 
         // Load existing answers for this response
@@ -67,7 +108,7 @@ class QuestionnaireController extends Controller
             ->get()
             ->keyBy('question_id');
 
-        return view('questionnaire.fill', compact('questionnaire', 'response', 'existingAnswers', 'isOfficerAssisted', 'respondentData'));
+        return view('questionnaire.fill', compact('questionnaire', 'response', 'existingAnswers', 'isOfficerAssisted', 'respondentData', 'actualQuestions'));
     }
 
     public function autosave(Request $request, $id)
@@ -76,7 +117,7 @@ class QuestionnaireController extends Controller
         $isOfficerAssisted = session('officer_assisted', false);
         $respondentData = $isOfficerAssisted
             ? session('officer_respondent')
-            : session('respondent');
+            : session('resident');
 
         if (!$respondentData && !auth()->check()) {
             return response()->json(['success' => false, 'message' => 'Not authenticated'], 401);
@@ -86,7 +127,7 @@ class QuestionnaireController extends Controller
 
         try {
             $response = Response::where('questionnaire_id', $id)
-                ->where('respondent_id', $respondentId)
+                ->where('resident_id', $respondentId)
                 ->where('status', 'in_progress')
                 ->first();
 
@@ -104,10 +145,10 @@ class QuestionnaireController extends Controller
                 'is_array' => is_array($value)
             ]);
 
-            // Decode if JSON (for checkboxes)
-            if (is_string($value) && json_decode($value) !== null) {
-                $decoded = json_decode($value);
-                if ($decoded !== null) {
+            // Decode if JSON (for checkboxes and location data)
+            if (is_string($value)) {
+                $decoded = json_decode($value, true); // Decode as associative array
+                if ($decoded !== null && json_last_error() === JSON_ERROR_NONE) {
                     $value = $decoded;
                     \Log::info('Decoded JSON value', ['decoded' => $value]);
                 }
@@ -119,8 +160,16 @@ class QuestionnaireController extends Controller
             ];
 
             if (is_array($value)) {
-                $answerData['selected_options'] = json_encode($value);
-                \Log::info('Saving as selected_options', ['json' => $answerData['selected_options']]);
+                // Check if it's an associative array (like location data with lat/lng)
+                if (array_keys($value) !== range(0, count($value) - 1)) {
+                    // Associative array - save as JSON text
+                    $answerData['answer_text'] = json_encode($value);
+                    \Log::info('Saving associative array as answer_text', ['json' => $answerData['answer_text']]);
+                } else {
+                    // Indexed array - save as selected_options
+                    $answerData['selected_options'] = json_encode($value);
+                    \Log::info('Saving indexed array as selected_options', ['json' => $answerData['selected_options']]);
+                }
             } else {
                 $answerData['answer_text'] = $value;
                 \Log::info('Saving as answer_text', ['text' => $value]);
@@ -133,7 +182,7 @@ class QuestionnaireController extends Controller
 
             return response()->json(['success' => true, 'message' => 'Saved']);
         } catch (\Exception $e) {
-            \Log::error('Autosave error', ['error' => $e->getMessage()]);
+            \Log::error('Autosave error', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
@@ -144,7 +193,7 @@ class QuestionnaireController extends Controller
         $isOfficerAssisted = session('officer_assisted', false);
         $respondentData = $isOfficerAssisted
             ? session('officer_respondent')
-            : session('respondent');
+            : session('resident');
 
         if (!$respondentData && !auth()->check()) {
             return redirect()->route('login');
@@ -170,14 +219,14 @@ class QuestionnaireController extends Controller
         try {
             // Get or create response
             $response = Response::where('questionnaire_id', $id)
-                ->where('respondent_id', $respondentId)
+                ->where('resident_id', $respondentId)
                 ->where('status', 'in_progress')
                 ->first();
 
             if (!$response) {
                 $response = Response::create([
                     'questionnaire_id' => $id,
-                    'respondent_id' => $respondentId,
+                    'resident_id' => $respondentId,
                     'status' => 'in_progress',
                     'started_at' => now(),
                     'entered_by_user_id' => $isOfficerAssisted ? auth()->id() : null,
@@ -231,6 +280,44 @@ class QuestionnaireController extends Controller
                 }
             }
 
+            // Handle family members data
+            if ($request->has('family_members')) {
+                $familyMembersData = [];
+
+                foreach ($request->family_members as $index => $memberData) {
+                    $member = $memberData;
+
+                    // Handle KTP/KIA file upload
+                    if ($request->hasFile("family_members.{$index}.ktp_kia")) {
+                        $file = $request->file("family_members.{$index}.ktp_kia");
+                        $filename = time() . '_' . $index . '_' . $file->getClientOriginalName();
+                        $path = $file->storeAs('ktp_kia', $filename, 'public');
+                        $member['ktp_kia_path'] = $path;
+                    }
+
+                    $familyMembersData[] = $member;
+                }
+
+                // Save family members to response
+                $response->update([
+                    'family_members' => json_encode($familyMembersData)
+                ]);
+            }
+
+            // Handle health data per member
+            if ($request->has('health')) {
+                $response->update([
+                    'health_data' => json_encode($request->health)
+                ]);
+            }
+
+            // Handle officer notes
+            if ($request->has('officer_notes')) {
+                $response->update([
+                    'officer_notes' => $request->officer_notes
+                ]);
+            }
+
             // Mark as completed
             $response->update([
                 'status' => 'completed',
@@ -257,16 +344,16 @@ class QuestionnaireController extends Controller
         $isOfficerAssisted = session('officer_assisted', false);
         $respondentData = $isOfficerAssisted
             ? session('officer_respondent')
-            : session('respondent');
+            : session('resident');
 
         $respondentId = $respondentData['id'] ?? session('respondent.id');
 
-        $response = Response::with(['questionnaire', 'respondent'])
+        $response = Response::with(['questionnaire', 'resident'])
             ->where('id', $responseId)
             ->firstOrFail();
 
         // Verify ownership or officer access
-        if (!$isOfficerAssisted && $response->respondent_id != $respondentId) {
+        if (!$isOfficerAssisted && $response->resident_id != $respondentId) {
             abort(403, 'Unauthorized access');
         }
 

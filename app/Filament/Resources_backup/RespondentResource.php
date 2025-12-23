@@ -4,7 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\RespondentResource\Pages;
 use App\Models\Respondent;
-use App\Models\KartuKeluarga;
+use App\Models\Family;
 use App\Models\CitizenType;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -69,9 +69,9 @@ class RespondentResource extends Resource
 
                 Forms\Components\Section::make('Kartu Keluarga & Jenis Warga')
                     ->schema([
-                        Forms\Components\Select::make('kartu_keluarga_id')
+                        Forms\Components\Select::make('families_id')
                             ->label('Kartu Keluarga')
-                            ->options(fn () => KartuKeluarga::all()->pluck('kepala_keluarga', 'id')->mapWithKeys(fn ($name, $id) => [$id => KartuKeluarga::find($id)->no_kk . ' - ' . $name]))
+                            ->options(fn () => Family::all()->pluck('kepala_keluarga', 'id')->mapWithKeys(fn ($name, $id) => [$id => Family::find($id)->no_kk . ' - ' . $name]))
                             ->searchable()
                             ->required()
                             ->reactive(),

@@ -60,15 +60,15 @@ class GeminiReportService
                 ->with([
                     'answers:id,response_id,question_id,selected_option_id,answer_text',
                     'answers.selectedOption:id,question_id,option_text',
-                    'respondent:id,nama_lengkap,jenis_kelamin,tanggal_lahir,latitude,longitude,village_id,district_id,regency_id,citizen_type_id,occupation_id,education_id',
-                    'respondent.occupation:id,occupation',
-                    'respondent.education:id,education',
-                    'respondent.village:id,name',
-                    'respondent.district:id,name',
-                    'respondent.regency:id,name',
-                    'respondent.citizenType:id,name'
+                    'resident:id,nama_lengkap,jenis_kelamin,tanggal_lahir,latitude,longitude,village_id,district_id,regency_id,citizen_type_id,occupation_id,education_id',
+                    'resident.occupation:id,occupation',
+                    'resident.education:id,education',
+                    'resident.village:id,name',
+                    'resident.district:id,name',
+                    'resident.regency:id,name',
+                    'resident.citizenType:id,name'
                 ])
-                ->select('id', 'questionnaire_id', 'respondent_id', 'status', 'completed_at')
+                ->select('id', 'questionnaire_id', 'resident_id', 'status', 'completed_at')
                 ->get();
 
             // 6. Generate data untuk 3 tabs
@@ -110,14 +110,14 @@ class GeminiReportService
         $responses = $questionnaire
             ->responses()
             ->where('status', 'completed')
-            ->with(['respondent:id,jenis_kelamin,tanggal_lahir,village_id', 'respondent.village:id,name'])
-            ->select('id', 'questionnaire_id', 'respondent_id')
+            ->with(['resident:id,jenis_kelamin,tanggal_lahir,village_id', 'resident.village:id,name'])
+            ->select('id', 'questionnaire_id', 'resident_id')
             ->limit(50)  // LIMIT to 50 sample responses for context
             ->get();
 
         // Demographics summary
-        $maleCount = $responses->filter(fn($r) => $r->respondent?->jenis_kelamin === 'L')->count();
-        $femaleCount = $responses->filter(fn($r) => $r->respondent?->jenis_kelamin === 'P')->count();
+        $maleCount = $responses->filter(fn($r) => $r->resident?->jenis_kelamin === 'L')->count();
+        $femaleCount = $responses->filter(fn($r) => $r->resident?->jenis_kelamin === 'P')->count();
 
         $context .= "DEMOGRAPHICS:\n";
         $context .= "- Male: {$maleCount}\n";
@@ -389,13 +389,13 @@ class GeminiReportService
         $answersCount = 0;
 
         // Build detail responden untuk tab Data
-        $respondentDetails = [];
+        $residentDetails = [];
 
         foreach ($responses as $response) {
             $answersCount += $response->answers->count();
-            $respondent = $response->respondent;
+            $resident = $response->resident;
 
-            if (!$respondent)
+            if (!$resident)
                 continue;
 
             $answers = [];
@@ -408,20 +408,20 @@ class GeminiReportService
 
             // Calculate age from tanggal_lahir
             $age = 'N/A';
-            if ($respondent->tanggal_lahir) {
-                $birthDate = \Carbon\Carbon::parse($respondent->tanggal_lahir);
+            if ($resident->tanggal_lahir) {
+                $birthDate = \Carbon\Carbon::parse($resident->tanggal_lahir);
                 $age = $birthDate->age;
             }
 
-            $respondentDetails[] = [
-                'nama' => $respondent->nama_lengkap,
-                'jenis_kelamin' => $respondent->jenis_kelamin ?? 'N/A',
+            $residentDetails[] = [
+                'nama' => $resident->nama_lengkap,
+                'jenis_kelamin' => $resident->jenis_kelamin ?? 'N/A',
                 'umur' => $age,
-                'desa' => $respondent->village?->name ?? 'N/A',
-                'kecamatan' => $respondent->district?->name ?? 'N/A',
-                'kabupaten' => $respondent->regency?->name ?? 'N/A',
-                'latitude' => $respondent->latitude,
-                'longitude' => $respondent->longitude,
+                'desa' => $resident->village?->name ?? 'N/A',
+                'kecamatan' => $resident->district?->name ?? 'N/A',
+                'kabupaten' => $resident->regency?->name ?? 'N/A',
+                'latitude' => $resident->latitude,
+                'longitude' => $resident->longitude,
                 'jawaban' => $answers
             ];
         }
@@ -433,7 +433,7 @@ class GeminiReportService
             'total_answers' => $answersCount,
             'ai_analysis' => $aiResponse['answer'] ?? 'No analysis available',
             'insights' => $aiResponse['insights'] ?? [],
-            'respondent_details' => $respondentDetails,  // Data detail responden
+            'resident_details' => $residentDetails,  // Data detail responden
         ];
     }
 

@@ -2,17 +2,20 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 
 class Answer extends Model implements HasMedia
 {
-    use InteractsWithMedia;
+    use InteractsWithMedia, SoftDeletes;
 
     protected $fillable = [
         'response_id',
+        'family_response_id',
+        'resident_id',
         'question_id',
         'answer_text',
         'selected_option_id',
@@ -33,6 +36,16 @@ class Answer extends Model implements HasMedia
     public function response(): BelongsTo
     {
         return $this->belongsTo(Response::class);
+    }
+
+    public function familyResponse(): BelongsTo
+    {
+        return $this->belongsTo(FamilyResponse::class);
+    }
+
+    public function resident(): BelongsTo
+    {
+        return $this->belongsTo(Resident::class);
     }
 
     public function question(): BelongsTo

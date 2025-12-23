@@ -35,9 +35,9 @@ class ResponseResource extends Resource
                             ->relationship('questionnaire', 'title')
                             ->required()
                             ->disabled(),
-                        Forms\Components\Select::make('respondent_id')
+                        Forms\Components\Select::make('resident_id')
                             ->label('Responden')
-                            ->relationship('respondent', 'nama_lengkap')
+                            ->relationship('resident', 'nama_lengkap')
                             ->required()
                             ->disabled(),
                     ])->columns(2),

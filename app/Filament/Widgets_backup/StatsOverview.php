@@ -3,7 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Models\Respondent;
-use App\Models\KartuKeluarga;
+use App\Models\Family;
 use App\Models\Response;
 use App\Models\Questionnaire;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
@@ -18,8 +18,8 @@ class StatsOverview extends BaseWidget
         $totalRespondents = Respondent::count();
         $verifiedRespondents = Respondent::verified()->count();
         $pendingVerification = Respondent::pending()->count();
-        $totalKK = KartuKeluarga::count();
-        $verifiedKK = KartuKeluarga::verified()->count();
+        $totalKK = Family::count();
+        $verifiedKK = Family::verified()->count();
         $totalResponses = Response::count();
         $completedResponses = Response::completed()->count();
         $activeQuestionnaires = Questionnaire::active()->count();

@@ -16,15 +16,21 @@ class Question extends Model implements HasMedia
         'questionnaire_id',
         'question_text',
         'question_type',
+        'is_section',
+        'parent_section_id',
         'media_type',
         'media_path',
         'is_required',
+        'is_repeatable',
+        'applies_to',
         'order',
         'settings',
     ];
 
     protected $casts = [
         'is_required' => 'boolean',
+        'is_repeatable' => 'boolean',
+        'is_section' => 'boolean',
         'settings' => 'array',
     ];
 
@@ -40,6 +46,15 @@ class Question extends Model implements HasMedia
         'image' => 'Upload Gambar',
         'video' => 'Upload Video',
         'location' => 'Lokasi GPS',
+        'province' => '🗺️ Provinsi',
+        'regency' => '🏙️ Kabupaten/Kota',
+        'district' => '🏘️ Kecamatan',
+        'village' => '🏠 Kelurahan/Desa',
+        'puskesmas' => '🏥 Puskesmas (Lookup)',
+        'field_officer' => '👮 Petugas Lapangan (Lookup)',
+        'lookup' => '🔍 Lookup (Creatable)',
+        'family_members' => '👨‍👩‍👧‍👦 Anggota Keluarga (Table)',
+        'health_per_member' => '🩺 Pertanyaan Kesehatan Per Anggota',
     ];
 
     public const MEDIA_TYPES = [
@@ -51,6 +66,16 @@ class Question extends Model implements HasMedia
     public function questionnaire(): BelongsTo
     {
         return $this->belongsTo(Questionnaire::class);
+    }
+
+    public function parentSection(): BelongsTo
+    {
+        return $this->belongsTo(Question::class, 'parent_section_id');
+    }
+
+    public function childQuestions(): HasMany
+    {
+        return $this->hasMany(Question::class, 'parent_section_id')->orderBy('order');
     }
 
     public function options(): HasMany
@@ -66,6 +91,16 @@ class Question extends Model implements HasMedia
     public function hasOptions(): bool
     {
         return in_array($this->question_type, ['single_choice', 'multiple_choice', 'dropdown']);
+    }
+
+    public function isWilayahType(): bool
+    {
+        return in_array($this->question_type, ['province', 'regency', 'district', 'village']);
+    }
+
+    public function isLookupType(): bool
+    {
+        return in_array($this->question_type, ['puskesmas', 'field_officer', 'lookup']);
     }
 
     public function hasQuestionMedia(): bool

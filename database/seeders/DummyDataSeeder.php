@@ -11,7 +11,7 @@ use App\Models\Question;
 use App\Models\Questionnaire;
 use App\Models\QuestionOption;
 use App\Models\Regency;
-use App\Models\Respondent;
+use App\Models\Resident;
 use App\Models\Response;
 use App\Models\Village;
 use Carbon\Carbon;
@@ -89,10 +89,10 @@ class DummyDataSeeder extends Seeder
                 return;
             }
 
-            // 1. Create 200 Respondents
-            $this->command->info('👥 Creating 200 Respondents...');
-            $respondents = $this->createRespondents(200, $province, $regency, $districts, $villages, $citizenTypes);
-            $this->command->info('✅ Created ' . count($respondents) . ' Respondents');
+            // 1. Create 200 Residents
+            $this->command->info('👥 Creating 200 Residents...');
+            $residents = $this->createResidents(200, $province, $regency, $districts, $villages, $citizenTypes);
+            $this->command->info('✅ Created ' . count($residents) . ' Residents');
 
             // 2. Create 22 Questionnaires (2 per OPD)
             $this->command->info('📋 Creating 22 Questionnaires (2 per OPD)...');
@@ -101,7 +101,7 @@ class DummyDataSeeder extends Seeder
 
             // 3. Create Responses (some completed, some in progress)
             $this->command->info('📝 Creating Responses...');
-            $this->createResponses($respondents, $questionnaires);
+            $this->createResponses($residents, $questionnaires);
             $this->command->info('✅ Responses created');
 
             DB::commit();
@@ -113,9 +113,9 @@ class DummyDataSeeder extends Seeder
         }
     }
 
-    private function createRespondents(int $count, $province, $regency, $districts, $villages, $citizenTypes): array
+    private function createResidents(int $count, $province, $regency, $districts, $villages, $citizenTypes): array
     {
-        $respondents = [];
+        $residents = [];
         $usedNiks = [];
 
         for ($i = 0; $i < $count; $i++) {
@@ -150,7 +150,7 @@ class DummyDataSeeder extends Seeder
             } while (in_array($nik, $usedNiks) || strlen($nik) !== 16);
             $usedNiks[] = $nik;
 
-            $respondent = Respondent::create([
+            $resident = Resident::create([
                 'citizen_type_id' => $citizenTypes->random()->id,
                 'province_id' => $province->id,
                 'regency_id' => $regency->id,
@@ -161,11 +161,11 @@ class DummyDataSeeder extends Seeder
                 'tempat_lahir' => 'Jayapura',
                 'tanggal_lahir' => $birthDate->format('Y-m-d'),
                 'jenis_kelamin' => $gender,
-                'golongan_darah' => fake()->randomElement(array_keys(Respondent::BLOOD_TYPES)),
+                'golongan_darah' => fake()->randomElement(array_keys(Resident::BLOOD_TYPES)),
                 'agama' => fake()->randomElement(['Kristen', 'Katolik', 'Islam']),
-                'status_perkawinan' => fake()->randomElement(array_keys(Respondent::MARITAL_STATUSES)),
-                'status_hubungan' => fake()->randomElement(array_keys(Respondent::FAMILY_RELATIONS)),
-                'pendidikan' => fake()->randomElement(array_keys(Respondent::EDUCATIONS)),
+                'status_perkawinan' => fake()->randomElement(array_keys(Resident::MARITAL_STATUSES)),
+                'status_hubungan' => fake()->randomElement(array_keys(Resident::FAMILY_RELATIONS)),
+                'pendidikan' => fake()->randomElement(array_keys(Resident::EDUCATIONS)),
                 'pekerjaan' => fake()->randomElement($this->pekerjaan),
                 'kewarganegaraan' => 'WNI',
                 'alamat' => 'Jl. ' . fake()->streetName() . ' No. ' . fake()->buildingNumber(),
@@ -181,14 +181,14 @@ class DummyDataSeeder extends Seeder
                 'verification_notes' => null,
             ]);
 
-            $respondents[] = $respondent;
+            $residents[] = $resident;
 
             if (($i + 1) % 20 === 0) {
-                $this->command->info("   Created {$i}/{$count} respondents...");
+                $this->command->info("   Created {$i}/{$count} residents...");
             }
         }
 
-        return $respondents;
+        return $residents;
     }
 
     /**
@@ -299,7 +299,7 @@ class DummyDataSeeder extends Seeder
                 // Create completed response
                 $response = Response::create([
                     'questionnaire_id' => $questionnaire->id,
-                    'respondent_id' => $respondent->id,
+                    'resident_id' => $respondent->id,
                     'status' => 'completed',
                     'is_valid' => true,
                     'progress_percentage' => 100,

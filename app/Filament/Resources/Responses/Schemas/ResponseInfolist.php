@@ -15,7 +15,7 @@ class ResponseInfolist
                 TextEntry::make('questionnaire.title')
                     ->label('Questionnaire'),
                 TextEntry::make('respondent.id')
-                    ->label('Respondent'),
+                    ->label('resident'),
                 TextEntry::make('status'),
                 TextEntry::make('lastQuestion.id')
                     ->label('Last question')

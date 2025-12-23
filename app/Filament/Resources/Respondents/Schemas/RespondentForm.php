@@ -6,7 +6,7 @@ use App\Models\CitizenType;
 use App\Models\District;
 use App\Models\Province;
 use App\Models\Regency;
-use App\Models\Respondent;
+use App\Models\Resident;
 use App\Models\Village;
 use Carbon\Carbon;
 use Filament\Forms\Components\DatePicker;
@@ -148,7 +148,7 @@ class RespondentForm
                                     return;
 
                                 // Check duplicate
-                                $query = Respondent::where('nik', $state);
+                                $query = Resident::where('nik', $state);
                                 if ($record)
                                     $query->where('id', '!=', $record->id);
                                 $existing = $query->first();
@@ -194,9 +194,9 @@ class RespondentForm
                 Section::make('👨‍👩‍👧‍👦 Data Keluarga')
                     ->schema([
                         Grid::make(3)->schema([
-                            Select::make('kartu_keluarga_id')
+                            Select::make('family_id')
                                 ->label('Kartu Keluarga')
-                                ->relationship('kartuKeluarga', 'no_kk')
+                                ->relationship('family', 'no_kk')
                                 ->searchable()
                                 ->preload()
                                 ->placeholder('Pilih No. KK'),
@@ -208,7 +208,7 @@ class RespondentForm
                                 ->placeholder('Pilih tipe warga'),
                             Select::make('status_hubungan')
                                 ->label('Status dalam Keluarga')
-                                ->options(Respondent::FAMILY_RELATIONS)
+                                ->options(Resident::FAMILY_RELATIONS)
                                 ->searchable()
                                 ->placeholder('Pilih status'),
                         ]),
@@ -234,35 +234,35 @@ class RespondentForm
                                 ->helperText('Auto dari NIK'),
                             Select::make('jenis_kelamin')
                                 ->label('Jenis Kelamin')
-                                ->options(Respondent::GENDERS)
+                                ->options(Resident::GENDERS)
                                 ->required()
                                 ->helperText('Auto dari NIK'),
                         ]),
                         Grid::make(3)->schema([
                             Select::make('agama')
                                 ->label('Agama')
-                                ->options(Respondent::RELIGIONS)
+                                ->options(Resident::RELIGIONS)
                                 ->required()
                                 ->searchable(),
                             Select::make('status_perkawinan')
                                 ->label('Status Perkawinan')
-                                ->options(Respondent::MARITAL_STATUSES)
+                                ->options(Resident::MARITAL_STATUSES)
                                 ->searchable(),
                             Select::make('golongan_darah')
                                 ->label('Golongan Darah')
-                                ->options(Respondent::BLOOD_TYPES),
+                                ->options(Resident::BLOOD_TYPES),
                         ]),
                         Grid::make(3)->schema([
                             Select::make('pendidikan')
                                 ->label('Pendidikan Terakhir')
-                                ->options(Respondent::EDUCATIONS)
+                                ->options(Resident::EDUCATIONS)
                                 ->searchable(),
                             TextInput::make('pekerjaan')
                                 ->label('Pekerjaan')
                                 ->placeholder('Jenis pekerjaan'),
                             Select::make('kewarganegaraan')
                                 ->label('Kewarganegaraan')
-                                ->options(Respondent::NATIONALITIES)
+                                ->options(Resident::NATIONALITIES)
                                 ->default('WNI')
                                 ->required(),
                         ]),
@@ -406,7 +406,7 @@ class RespondentForm
                         Grid::make(2)->schema([
                             Select::make('verification_status')
                                 ->label('Status Verifikasi')
-                                ->options(Respondent::VERIFICATION_STATUSES)
+                                ->options(Resident::VERIFICATION_STATUSES)
                                 ->default('pending')
                                 ->required()
                                 ->live(),
@@ -431,3 +431,4 @@ class RespondentForm
             ]);
     }
 }
+

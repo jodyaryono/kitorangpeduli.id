@@ -102,8 +102,3 @@
 @finished
     echo "🎉 Deployment script finished!"
 @endfinished
-
-@error
-    echo "❌ Deployment failed!"
-    echo "Check the logs for more details."
-@enderror

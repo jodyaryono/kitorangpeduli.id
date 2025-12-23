@@ -22,7 +22,7 @@ class ResponseMap extends Page
 
     public function getViewData(): array
     {
-        $responses = Response::with(['respondent', 'questionnaire'])
+        $responses = Response::with(['resident', 'questionnaire'])
             ->whereNotNull('latitude')
             ->whereNotNull('longitude')
             ->where('status', 'completed')

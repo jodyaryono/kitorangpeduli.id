@@ -6,6 +6,16 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'KitorangPeduli.id - Survey Papua')</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <!-- Choices.js for searchable dropdowns -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
+
+    <!-- Leaflet.js for map picker -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
     <script>
         tailwind.config = {
             theme: {
@@ -55,6 +65,21 @@
         .gender-option:has(input:checked) {
             border-color: #FFD700 !important;
             background-color: #FEF3C7 !important;
+        }
+
+        /* Force uppercase for specific inputs */
+        input.uppercase,
+        textarea.uppercase,
+        input[name*="nama"],
+        input[name*="alamat"],
+        input[name*="tempat"],
+        textarea[name*="alamat"] {
+            text-transform: uppercase !important;
+        }
+
+        /* Leaflet map fix */
+        .leaflet-container {
+            z-index: 1;
         }
     </style>
     @stack('styles')

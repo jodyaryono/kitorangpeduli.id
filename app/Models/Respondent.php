@@ -79,7 +79,7 @@ class Respondent extends Model implements HasMedia
     ];
 
     protected $fillable = [
-        'kartu_keluarga_id',
+        'families_id',
         'citizen_type_id',
         'status_hubungan',
         'nik',
@@ -131,10 +131,16 @@ class Respondent extends Model implements HasMedia
         'otp_code',
     ];
 
-    // Relasi KK
+    // Relasi Family
+    public function family(): BelongsTo
+    {
+        return $this->belongsTo(Family::class, 'families_id');
+    }
+
+    // Alias for backward compatibility
     public function kartuKeluarga(): BelongsTo
     {
-        return $this->belongsTo(KartuKeluarga::class, 'kartu_keluarga_id');
+        return $this->family();
     }
 
     // Relasi Jenis Warga

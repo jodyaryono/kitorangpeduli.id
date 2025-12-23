@@ -6,7 +6,7 @@ use App\Models\CitizenType;
 use App\Models\Opd;
 use App\Models\Province;
 use App\Models\Questionnaire;
-use App\Models\Respondent;
+use App\Models\Resident;
 use App\Models\Response;
 use Illuminate\Http\Request;
 
@@ -33,9 +33,9 @@ class HomeController extends Controller
             ->withCount('questions');
 
         // Eager load responses with answer counts for current respondent
-        if (session('respondent')) {
+        if (session('resident')) {
             $query->with(['responses' => function ($q) {
-                $q->where('respondent_id', session('respondent.id'))
+                $q->where('resident_id', session('respondent.id'))
                   ->withCount('answers');
             }]);
         }
@@ -68,7 +68,7 @@ class HomeController extends Controller
 
         $stats = [
             'questionnaires' => Questionnaire::where('is_active', true)->count(),
-            'respondents' => Respondent::count(),
+            'respondents' => Resident::count(),
             'responses' => Response::where('status', 'completed')->count(),
         ];
 

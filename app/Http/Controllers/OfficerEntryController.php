@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Questionnaire;
-use App\Models\Respondent;
+use App\Models\Resident;
 use App\Models\Response;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -45,13 +45,13 @@ class OfficerEntryController extends Controller
         $questionnaires->getCollection()->transform(function ($q) {
             $q->completed_count = Response::where('questionnaire_id', $q->id)
                 ->where('status', 'completed')
-                ->distinct('respondent_id')
+                ->distinct('resident_id')
                 ->count();
             return $q;
         });
 
         // Get recent entries by this officer (last 10 - both completed and in-progress)
-        $recentEntries = Response::with(['questionnaire', 'respondent'])
+        $recentEntries = Response::with(['questionnaire', 'resident'])
             ->where('entered_by_user_id', $user->id)
             ->orderByDesc('updated_at')
             ->limit(10)
@@ -61,7 +61,7 @@ class OfficerEntryController extends Controller
             'questionnaires' => Questionnaire::forOfficers($opdId)->available()->count(),
             'opdName' => $user->opd->name ?? 'Semua OPD',
             'totalEntered' => Response::where('entered_by_user_id', $user->id)->where('status', 'completed')->count(),
-            'totalRespondents' => Response::where('entered_by_user_id', $user->id)->where('status', 'completed')->distinct('respondent_id')->count(),
+            'totalRespondents' => Response::where('entered_by_user_id', $user->id)->where('status', 'completed')->distinct('resident_id')->count(),
         ];
 
         // If AJAX request, return partial view
@@ -70,7 +70,7 @@ class OfficerEntryController extends Controller
             $questionnaires->getCollection()->transform(function ($q) {
                 $q->completed_count = Response::where('questionnaire_id', $q->id)
                     ->where('status', 'completed')
-                    ->distinct('respondent_id')
+                    ->distinct('resident_id')
                     ->count();
                 return $q;
             });
@@ -93,7 +93,7 @@ class OfficerEntryController extends Controller
         ]);
     }
 
-    public function selectQuestionnaire(Request $request, $id): View
+    public function selectQuestionnaire(Request $request, $id)
     {
         $user = $request->user();
         if (!$user || !in_array($user->role, ['admin', 'opd_admin', 'field_officer'])) {
@@ -109,7 +109,20 @@ class OfficerEntryController extends Controller
             ->available()
             ->findOrFail($id);
 
-        $nikOptions = Respondent::query()
+        // For officer_assisted questionnaires, skip NIK entry and go directly to form
+        if ($questionnaire->visibility === 'officer_assisted') {
+            session([
+                'officer_assisted' => true,
+                'officer_questionnaire_id' => $questionnaire->id,
+            ]);
+
+            return redirect()
+                ->route('questionnaire.start', ['id' => $questionnaire->id])
+                ->with('success', 'Mulai mengisi kuesioner ' . $questionnaire->name);
+        }
+
+        // For other visibility types, show NIK entry screen
+        $nikOptions = Resident::query()
             ->select(['nik', 'nama_lengkap', 'jenis_kelamin', 'tanggal_lahir', 'updated_at'])
             ->orderByDesc('updated_at')
             ->limit(5)
@@ -134,13 +147,13 @@ class OfficerEntryController extends Controller
 
         // Get top respondents who filled this questionnaire with officer help
         $search = $request->get('search', '');
-        $topRespondentsQuery = Response::with(['respondent', 'questionnaire'])
+        $topRespondentsQuery = Response::with(['resident', 'questionnaire'])
             ->where('questionnaire_id', $questionnaire->id)
             ->where('entered_by_user_id', $user->id)
             ->orderByDesc('updated_at');
 
         if ($search) {
-            $topRespondentsQuery->whereHas('respondent', function ($q) use ($search) {
+            $topRespondentsQuery->whereHas('resident', function ($q) use ($search) {
                 $q
                     ->where('nik', 'ilike', "%{$search}%")
                     ->orWhere('nama_lengkap', 'ilike', "%{$search}%");
@@ -189,14 +202,14 @@ class OfficerEntryController extends Controller
             return back()->withErrors(['questionnaire_id' => 'Kuesioner tidak diizinkan untuk OPD Anda.'])->withInput();
         }
 
-        $respondent = Respondent::where('nik', $nik)->first();
+        $respondent = Resident::where('nik', $nik)->first();
         if (!$respondent) {
             return back()->withErrors(['nik' => 'NIK tidak ditemukan. Daftarkan responden terlebih dahulu.'])->withInput();
         }
 
         // Check if response already exists
         $existing = Response::where('questionnaire_id', $questionnaire->id)
-            ->where('respondent_id', $respondent->id)
+            ->where('resident_id', $respondent->id)
             ->first();
 
         if ($existing && $existing->status === 'completed') {
@@ -206,7 +219,7 @@ class OfficerEntryController extends Controller
         // Get or create response
         $response = $existing ?: Response::create([
             'questionnaire_id' => $questionnaire->id,
-            'respondent_id' => $respondent->id,
+            'resident_id' => $respondent->id,
             'entered_by_user_id' => $user->id,
             'status' => 'in_progress',
             'started_at' => now(),
@@ -320,7 +333,7 @@ class OfficerEntryController extends Controller
             unset($validated['no_hp']);
 
             // Create respondent with all validated data
-            $respondent = Respondent::create($validated);
+            $respondent = Resident::create($validated);
 
             // Get questionnaire_id from request to redirect back
             $questionnaire_id = $request->get('questionnaire_id');

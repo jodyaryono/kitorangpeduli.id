@@ -73,13 +73,13 @@ class KartuKeluarga extends Model implements HasMedia
     // Anggota Keluarga
     public function anggota(): HasMany
     {
-        return $this->hasMany(Respondent::class, 'kartu_keluarga_id');
+        return $this->hasMany(Resident::class, 'kartu_keluarga_id');
     }
 
     // Alias for respondents
     public function respondents(): HasMany
     {
-        return $this->hasMany(Respondent::class, 'kartu_keluarga_id');
+        return $this->hasMany(Resident::class, 'kartu_keluarga_id');
     }
 
     // Scopes

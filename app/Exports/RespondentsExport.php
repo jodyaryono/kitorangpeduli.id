@@ -2,7 +2,7 @@
 
 namespace App\Exports;
 
-use App\Models\Respondent;
+use App\Models\Resident;
 use Maatwebsite\Excel\Concerns\Exportable;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;

@@ -3,7 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\KartuKeluargaResource\Pages;
-use App\Models\KartuKeluarga;
+use App\Models\Family;
 use App\Models\Village;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -13,7 +13,7 @@ use Filament\Tables\Table;
 
 class KartuKeluargaResource extends Resource
 {
-    protected static ?string $model = KartuKeluarga::class;
+    protected static ?string $model = Family::class;
 
     protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-home';
 
@@ -96,7 +96,7 @@ class KartuKeluargaResource extends Resource
                             ->required(),
                         Forms\Components\Select::make('verification_status')
                             ->label('Status Verifikasi')
-                            ->options(KartuKeluarga::VERIFICATION_STATUSES)
+                            ->options(Family::VERIFICATION_STATUSES)
                             ->default('pending')
                             ->required(),
                         Forms\Components\Textarea::make('verification_notes')
@@ -140,7 +140,7 @@ class KartuKeluargaResource extends Resource
                         'success' => 'verified',
                         'danger' => 'rejected',
                     ])
-                    ->formatStateUsing(fn (string $state): string => KartuKeluarga::VERIFICATION_STATUSES[$state] ?? $state),
+                    ->formatStateUsing(fn (string $state): string => Family::VERIFICATION_STATUSES[$state] ?? $state),
                 Tables\Columns\ImageColumn::make('kk_image_path')
                     ->label('KK')
                     ->circular(),
@@ -153,7 +153,7 @@ class KartuKeluargaResource extends Resource
             ->filters([
                 Tables\Filters\SelectFilter::make('verification_status')
                     ->label('Status')
-                    ->options(KartuKeluarga::VERIFICATION_STATUSES),
+                    ->options(Family::VERIFICATION_STATUSES),
                 Tables\Filters\SelectFilter::make('province_id')
                     ->label('Provinsi')
                     ->relationship('province', 'name')
@@ -209,9 +209,9 @@ class KartuKeluargaResource extends Resource
     {
         return [
             'index' => Pages\ListKartuKeluargas::route('/'),
-            'create' => Pages\CreateKartuKeluarga::route('/create'),
-            'view' => Pages\ViewKartuKeluarga::route('/{record}'),
-            'edit' => Pages\EditKartuKeluarga::route('/{record}/edit'),
+            'create' => Pages\CreateFamily::route('/create'),
+            'view' => Pages\ViewFamily::route('/{record}'),
+            'edit' => Pages\EditFamily::route('/{record}/edit'),
         ];
     }
 }

@@ -20,13 +20,13 @@ class District extends Model
         return $this->hasMany(Village::class);
     }
 
-    public function kartuKeluarga(): HasMany
+    public function families(): HasMany
     {
-        return $this->hasMany(KartuKeluarga::class);
+        return $this->hasMany(Family::class);
     }
 
-    public function respondents(): HasMany
+    public function residents(): HasMany
     {
-        return $this->hasMany(Respondent::class);
+        return $this->hasMany(Resident::class);
     }
 }

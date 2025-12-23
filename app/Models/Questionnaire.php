@@ -22,6 +22,7 @@ class Questionnaire extends Model implements HasMedia
         'end_date',
         'is_active',
         'visibility',
+        'target_type',
         'requires_location',
         'requires_verified_respondent',
         'max_responses',
@@ -63,6 +64,18 @@ class Questionnaire extends Model implements HasMedia
     public function responses(): HasMany
     {
         return $this->hasMany(Response::class);
+    }
+
+    public function familyResponses(): HasMany
+    {
+        return $this->hasMany(FamilyResponse::class);
+    }
+
+    public function assignedUsers()
+    {
+        return $this->belongsToMany(User::class, 'questionnaire_users')
+            ->withPivot('role', 'assigned_by_user_id', 'assigned_at')
+            ->withTimestamps();
     }
 
     // Scopes

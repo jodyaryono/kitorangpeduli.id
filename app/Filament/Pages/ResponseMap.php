@@ -2,7 +2,7 @@
 
 namespace App\Filament\Pages;
 
-use App\Models\Respondent;
+use App\Models\Resident;
 use App\Models\Response;
 use Filament\Pages\Page;
 
@@ -22,7 +22,7 @@ class ResponseMap extends Page
 
     public function getViewData(): array
     {
-        $responses = Response::with(['respondent', 'questionnaire'])
+        $responses = Response::with(['resident', 'questionnaire'])
             ->whereNotNull('latitude')
             ->whereNotNull('longitude')
             ->where('status', 'completed')

@@ -12,11 +12,12 @@ class Occupation extends Model
 
     protected $fillable = [
         'id',
-        'occupation',
+        'name',
+        'code',
     ];
 
-    public function respondents(): HasMany
+    public function residents(): HasMany
     {
-        return $this->hasMany(Respondent::class);
+        return $this->hasMany(Resident::class);
     }
 }

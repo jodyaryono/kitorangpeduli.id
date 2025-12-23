@@ -8,7 +8,7 @@ use App\Models\Education;
 use App\Models\Occupation;
 use App\Models\Province;
 use App\Models\Regency;
-use App\Models\Respondent;
+use App\Models\Resident;
 use App\Services\WhatsAppService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -33,7 +33,7 @@ class AuthController extends Controller
         }
 
         // If already logged in as respondent, redirect to home
-        if (session('respondent')) {
+        if (session('resident')) {
             return redirect()->route('home');
         }
 
@@ -67,7 +67,7 @@ class AuthController extends Controller
 
         // Check if user (officer) exists first
         $user = \App\Models\User::where('phone', $no_hp)->where('is_active', true)->first();
-        $respondent = Respondent::where('phone', $no_hp)->first();
+        $respondent = Resident::where('phone', $no_hp)->first();
 
         if (!$user && !$respondent) {
             return back()
@@ -81,7 +81,7 @@ class AuthController extends Controller
         // Store OTP in cache for 5 minutes
         Cache::put('otp_' . $no_hp, $otp, now()->addMinutes(5));
         // Store login type (officer has priority)
-        Cache::put('login_type_' . $no_hp, $user ? 'officer' : 'respondent', now()->addMinutes(5));
+        Cache::put('login_type_' . $no_hp, $user ? 'officer' : 'resident', now()->addMinutes(5));
 
         // Send OTP via WhatsApp
         $this->whatsAppService->sendOTP('+' . $no_hp, $otp);
@@ -98,7 +98,7 @@ class AuthController extends Controller
 
         $no_hp = $request->no_hp;
         $cachedOtp = Cache::get('otp_' . $no_hp);
-        $loginType = Cache::get('login_type_' . $no_hp, 'respondent');
+        $loginType = Cache::get('login_type_' . $no_hp, 'resident');
 
         // For development, accept "123456" as valid OTP
         if ($request->otp !== $cachedOtp && $request->otp !== '123456') {
@@ -133,7 +133,7 @@ class AuthController extends Controller
         }
 
         // Login as respondent
-        $respondent = Respondent::where('phone', $no_hp)->first();
+        $respondent = Resident::where('phone', $no_hp)->first();
         if (!$respondent) {
             return redirect()->route('register')->withErrors(['no_hp' => 'Nomor HP tidak ditemukan.']);
         }
@@ -145,7 +145,7 @@ class AuthController extends Controller
 
         // Store respondent in session
         session([
-            'respondent' => [
+            'resident' => [
                 'id' => $respondent->id,
                 'nama_lengkap' => $respondent->nama_lengkap,
                 'no_hp' => $respondent->phone,
@@ -165,7 +165,7 @@ class AuthController extends Controller
 
     public function showRegister()
     {
-        if (session('respondent')) {
+        if (session('resident')) {
             return redirect()->route('home');
         }
         // Store intended questionnaire if provided
@@ -229,7 +229,7 @@ class AuthController extends Controller
 
         try {
             // Create respondent
-            $respondent = Respondent::create([
+            $respondent = Resident::create([
                 'nama_lengkap' => $request->nama_lengkap,
                 'nik' => $request->nik,
                 'status_hubungan' => $request->status_hubungan ?: ($request->no_kk ? 'Anggota Keluarga' : null),
@@ -286,18 +286,18 @@ class AuthController extends Controller
         }
 
         // Clear respondent session
-        session()->forget('respondent');
+        session()->forget('resident');
 
         return redirect()->route('home')->with('success', 'Anda telah keluar.');
     }
 
     public function showProfile()
     {
-        if (!session('respondent')) {
+        if (!session('resident')) {
             return redirect()->route('login')->with('info', 'Silakan masuk terlebih dahulu.');
         }
 
-        $respondent = Respondent::with([
+        $respondent = Resident::with([
             'village',
             'citizenType',
             'occupation',
@@ -321,16 +321,16 @@ class AuthController extends Controller
         $occupations = Occupation::orderBy('id')->get();
         $citizenTypes = CitizenType::orderBy('name')->get();
 
-        return view('profile.show', compact('respondent', 'provinces', 'educations', 'occupations', 'citizenTypes'));
+        return view('profile.show', compact('resident', 'provinces', 'educations', 'occupations', 'citizenTypes'));
     }
 
     public function updateProfile(Request $request)
     {
-        if (!session('respondent')) {
+        if (!session('resident')) {
             return redirect()->route('login')->with('info', 'Silakan masuk terlebih dahulu.');
         }
 
-        $respondent = Respondent::findOrFail(session('respondent.id'));
+        $respondent = Resident::findOrFail(session('respondent.id'));
 
         $request->validate([
             'nama_lengkap' => 'required|string|max:255',
@@ -403,7 +403,7 @@ class AuthController extends Controller
             }
 
             // Update session data
-            session(['respondent' => [
+            session(['resident' => [
                 'id' => $respondent->id,
                 'nama_lengkap' => $respondent->nama_lengkap,
                 'phone' => $respondent->phone,

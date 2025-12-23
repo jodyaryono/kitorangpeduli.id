@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Respondent;
+use App\Models\Resident;
 use App\Services\WhatsAppService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -37,10 +37,10 @@ class AuthController extends Controller
 
         $phone = $request->phone;
 
-        // Find or check if respondent exists
-        $respondent = Respondent::where('phone', $phone)->first();
+        // Find or check if resident exists
+        $resident = Resident::where('phone', $phone)->first();
 
-        if (!$respondent) {
+        if (!$resident) {
             return response()->json([
                 'success' => false,
                 'message' => 'Nomor HP tidak terdaftar. Silakan registrasi terlebih dahulu.',
@@ -49,7 +49,7 @@ class AuthController extends Controller
         }
 
         // Generate OTP
-        $otp = $respondent->generateOtp();
+        $otp = $resident->generateOtp();
 
         // Send OTP via WhatsApp
         $result = $this->whatsAppService->sendOtp($phone, $otp);
@@ -86,16 +86,16 @@ class AuthController extends Controller
             ], 422);
         }
 
-        $respondent = Respondent::where('phone', $request->phone)->first();
+        $resident = Resident::where('phone', $request->phone)->first();
 
-        if (!$respondent) {
+        if (!$resident) {
             return response()->json([
                 'success' => false,
                 'message' => 'Nomor HP tidak terdaftar',
             ], 404);
         }
 
-        if (!$respondent->verifyOtp($request->otp)) {
+        if (!$resident->verifyOtp($request->otp)) {
             return response()->json([
                 'success' => false,
                 'message' => 'OTP salah atau sudah kadaluarsa',
@@ -103,20 +103,20 @@ class AuthController extends Controller
         }
 
         // Create Sanctum token
-        $token = $respondent->createToken('mobile-app')->plainTextToken;
+        $token = $resident->createToken('mobile-app')->plainTextToken;
 
         return response()->json([
             'success' => true,
             'message' => 'Login berhasil',
             'data' => [
                 'token' => $token,
-                'respondent' => [
-                    'id' => $respondent->id,
-                    'nik' => $respondent->nik,
-                    'nama_lengkap' => $respondent->nama_lengkap,
-                    'phone' => $respondent->phone,
-                    'verification_status' => $respondent->verification_status,
-                    'can_answer_questionnaire' => $respondent->canAnswerQuestionnaire(),
+                'resident' => [
+                    'id' => $resident->id,
+                    'nik' => $resident->nik,
+                    'nama_lengkap' => $resident->nama_lengkap,
+                    'phone' => $resident->phone,
+                    'verification_status' => $resident->verification_status,
+                    'can_answer_questionnaire' => $resident->canAnswerQuestionnaire(),
                 ],
             ],
         ]);
@@ -152,12 +152,12 @@ class AuthController extends Controller
             ], 422);
         }
 
-        $respondent = Respondent::where('phone', $request->phone)->first();
+        $resident = Resident::where('phone', $request->phone)->first();
 
         return response()->json([
             'success' => true,
-            'registered' => $respondent !== null,
-            'verification_status' => $respondent?->verification_status,
+            'registered' => $resident !== null,
+            'verification_status' => $resident?->verification_status,
         ]);
     }
 }

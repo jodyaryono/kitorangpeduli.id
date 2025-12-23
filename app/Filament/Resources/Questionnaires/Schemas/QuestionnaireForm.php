@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Questionnaires\Schemas;
 
 use App\Models\Question;
+use App\Models\Puskesmas;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Repeater;
@@ -95,27 +96,57 @@ class QuestionnaireForm
                     ])
                     ->columnSpanFull()
                     ->collapsed(),
-                // ==================== PERTANYAAN ====================
-                Section::make('❓ Daftar Pertanyaan')
-                    ->description('Tambahkan pertanyaan untuk kuesioner ini')
+                // ==================== GROUPS & PERTANYAAN ====================
+                Section::make('📁 Groups & Pertanyaan')
+                    ->description('Organisir pertanyaan dalam groups/sections')
                     ->schema([
                         Repeater::make('questions')
                             ->label('')
-                            ->relationship()
+                            ->relationship(
+                                name: 'questions',
+                                modifyQueryUsing: fn($query) => $query->whereNull('parent_section_id')->where('is_section', true)
+                            )
                             ->orderColumn('order')
                             ->reorderable()
                             ->collapsible()
                             ->cloneable()
                             ->itemLabel(fn(array $state): ?string =>
                                 isset($state['question_text'])
-                                    ? 'Q' . ($state['order'] ?? '') . ': ' . substr($state['question_text'], 0, 50) . (strlen($state['question_text'] ?? '') > 50 ? '...' : '')
-                                    : 'Pertanyaan Baru')
+                                    ? '📁 ' . substr($state['question_text'], 0, 60) . (strlen($state['question_text'] ?? '') > 60 ? '...' : '')
+                                    : '📁 Group Baru')
                             ->schema([
                                 Textarea::make('question_text')
-                                    ->label('Teks Pertanyaan')
+                                    ->label('Nama Group/Section')
                                     ->required()
-                                    ->rows(2)
+                                    ->rows(1)
+                                    ->placeholder('Contoh: I. PENGENALAN TEMPAT')
                                     ->columnSpanFull(),
+
+                                // Hidden fields untuk menandai ini adalah section
+                                Toggle::make('is_section')
+                                    ->default(true)
+                                    ->hidden()
+                                    ->dehydrated(),
+
+                                // Nested Repeater untuk pertanyaan di dalam group
+                                Repeater::make('childQuestions')
+                                    ->label('Pertanyaan dalam Group ini')
+                                    ->relationship('childQuestions')
+                                    ->orderColumn('order')
+                                    ->reorderable()
+                                    ->collapsible()
+                                    ->cloneable()
+                                    ->itemLabel(fn(array $state): ?string =>
+                                        isset($state['question_text'])
+                                            ? '❓ ' . substr($state['question_text'], 0, 50) . (strlen($state['question_text'] ?? '') > 50 ? '...' : '')
+                                            : '❓ Pertanyaan Baru')
+                                    ->schema([
+                                        Textarea::make('question_text')
+                                            ->label('Teks Pertanyaan')
+                                            ->required()
+                                            ->rows(2)
+                                            ->columnSpanFull(),
+
                                 Grid::make(3)->schema([
                                     Select::make('question_type')
                                         ->label('Tipe Pertanyaan')
@@ -152,6 +183,30 @@ class QuestionnaireForm
                                     ->addActionLabel('+ Tambah Pilihan')
                                     ->visible(fn(Get $get) => in_array($get('question_type'), ['single_choice', 'multiple_choice', 'dropdown']))
                                     ->columnSpanFull(),
+                                // Settings untuk wilayah cascade
+                                Grid::make(2)
+                                    ->schema([
+                                        Select::make('settings.cascades_from_question_id')
+                                            ->label('Cascade dari pertanyaan')
+                                            ->options(fn($get, $record) =>
+                                                Question::where('questionnaire_id', $get('../../id'))
+                                                    ->whereIn('question_type', ['province', 'regency', 'district'])
+                                                    ->pluck('question_text', 'id')
+                                            )
+                                            ->helperText('Pilih pertanyaan wilayah parent untuk cascade otomatis')
+                                            ->searchable(),
+                                        TextInput::make('settings.lookup_model')
+                                            ->label('Model Lookup')
+                                            ->default(fn(Get $get) =>
+                                                $get('question_type') === 'puskesmas' ? 'Puskesmas' :
+                                                ($get('question_type') === 'field_officer' ? 'User' : null)
+                                            )
+                                            ->helperText('Contoh: Puskesmas, User, Sekolah, dll')
+                                            ->placeholder('Nama Model')
+                                            ->disabled(fn(Get $get) => in_array($get('question_type'), ['puskesmas', 'field_officer'])),
+                                    ])
+                                    ->visible(fn(Get $get) => in_array($get('question_type'), ['regency', 'district', 'village', 'puskesmas', 'field_officer', 'lookup']))
+                                    ->columnSpanFull(),
                                 // Settings untuk scale
                                 Grid::make(4)
                                     ->schema([
@@ -171,8 +226,12 @@ class QuestionnaireForm
                                             ->default('Sangat Baik'),
                                     ])
                                     ->visible(fn(Get $get) => $get('question_type') === 'scale'),
+                                ])
+                                ->addActionLabel('➕ Tambah Pertanyaan')
+                                ->defaultItems(0)
+                                ->columnSpanFull(),
                             ])
-                            ->addActionLabel('+ Tambah Pertanyaan')
+                            ->addActionLabel('📁 Tambah Group')
                             ->defaultItems(0)
                             ->columnSpanFull(),
                     ])

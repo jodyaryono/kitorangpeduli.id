@@ -25,7 +25,7 @@ class AnswersExport implements FromCollection, WithHeadings, WithStyles, WithTit
         $questions = $questionnaire->questions()->orderBy('order')->get();
 
         $responses = Response::with([
-            'respondent',
+            'resident',
             'answers.question',
             'answers.selectedOption',
         ])

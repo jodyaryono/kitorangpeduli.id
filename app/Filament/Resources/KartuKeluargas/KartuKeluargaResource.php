@@ -9,7 +9,7 @@ use App\Filament\Resources\KartuKeluargas\Pages\ViewKartuKeluarga;
 use App\Filament\Resources\KartuKeluargas\Schemas\KartuKeluargaForm;
 use App\Filament\Resources\KartuKeluargas\Schemas\KartuKeluargaInfolist;
 use App\Filament\Resources\KartuKeluargas\Tables\KartuKeluargasTable;
-use App\Models\KartuKeluarga;
+use App\Models\Family;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -18,9 +18,19 @@ use Filament\Tables\Table;
 
 class KartuKeluargaResource extends Resource
 {
-    protected static ?string $model = KartuKeluarga::class;
+    protected static ?string $model = Family::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+
+    protected static ?string $navigationLabel = 'Families';
+
+    protected static ?string $modelLabel = 'Family';
+
+    protected static ?string $pluralModelLabel = 'Families';
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Responden';
+
+    protected static ?int $navigationSort = 2;
 
     public static function form(Schema $schema): Schema
     {

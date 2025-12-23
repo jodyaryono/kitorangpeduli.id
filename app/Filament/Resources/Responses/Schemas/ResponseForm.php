@@ -18,8 +18,8 @@ class ResponseForm
                 Select::make('questionnaire_id')
                     ->relationship('questionnaire', 'title')
                     ->required(),
-                Select::make('respondent_id')
-                    ->relationship('respondent', 'id')
+                Select::make('resident_id')
+                    ->relationship('resident', 'id')
                     ->required(),
                 TextInput::make('status')
                     ->required()

@@ -3,7 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Models\Respondent;
-use App\Models\KartuKeluarga;
+use App\Models\Family;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
