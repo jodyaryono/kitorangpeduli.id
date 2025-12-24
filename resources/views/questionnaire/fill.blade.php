@@ -3,6 +3,10 @@
 @section('title', $questionnaire->title . ' - KitorangPeduli.id')
 
 @push('styles')
+<!-- Flatpickr for date picker with dd/mm/yyyy format -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/id.js"></script>
 <style>
     @keyframes fadeIn {
         from {
@@ -379,7 +383,7 @@
                                                 @case('family_members')
                                                     <div class="space-y-3">
                                                         <div id="family-members-list" class="space-y-2"></div>
-                                                        <button type="button" onclick="addFamilyMember()" class="w-full px-4 py-2 bg-yellow-500 text-black rounded-lg hover:bg-yellow-600 transition font-medium text-sm">
+                                                        <button type="button" id="add-family-member-btn" onclick="addFamilyMember()" class="hidden w-full px-4 py-2 bg-yellow-500 text-black rounded-lg hover:bg-yellow-600 transition font-medium text-sm">
                                                             + Tambah Anggota Keluarga
                                                         </button>
                                                     </div>
@@ -388,9 +392,12 @@
                                                 @case('health_per_member')
                                                     <div id="health-per-member-{{ $question->id }}" class="space-y-4">
                                                         <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
-                                                            📋 Isi data per anggota keluarga di bawah ini
+                                                            Pertanyaan ini berlaku untuk SEMUA UMUR. Isi untuk setiap anggota keluarga yang sudah didaftarkan.
                                                         </div>
-                                                        <div id="health-questions-container"></div>
+                                                        <div id="health-questions-container" class="space-y-4"></div>
+                                                        <div id="no-family-members-notice" class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
+                                                            Belum ada anggota keluarga. Silakan tambahkan anggota keluarga di bagian IV terlebih dahulu.
+                                                        </div>
                                                     </div>
                                                     @break
 
@@ -509,7 +516,7 @@
                                                             @endforeach
                                                         @else
                                                             <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-                                                                ⚠️ Tidak ada opsi jawaban untuk pertanyaan ini. Silakan hubungi administrator.
+                                                                ...��️ Tidak ada opsi jawaban untuk pertanyaan ini. Silakan hubungi administrator.
                                                             </div>
                                                         @endif
                                                     </div>
@@ -537,7 +544,7 @@
                                                             @endforeach
                                                         @else
                                                             <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-                                                                ⚠️ Tidak ada opsi jawaban untuk pertanyaan ini. Silakan hubungi administrator.
+                                                                ...��️ Tidak ada opsi jawaban untuk pertanyaan ini. Silakan hubungi administrator.
                                                             </div>
                                                         @endif
                                                     </div>
@@ -1061,8 +1068,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // Family Members Management
     let familyMemberCount = 0;
     let occupationsData = [];
+    let educationsData = [];
+    let familyRelationsData = [];
+    let maritalStatusesData = [];
+    let religionsData = [];
 
-    // Load occupations
+    // Load all master data
     async function loadOccupations() {
         try {
             const response = await fetch('/api/occupations');
@@ -1070,6 +1081,50 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (error) {
             console.error('Error loading occupations:', error);
         }
+    }
+
+    async function loadEducations() {
+        try {
+            const response = await fetch('/api/educations');
+            educationsData = await response.json();
+        } catch (error) {
+            console.error('Error loading educations:', error);
+        }
+    }
+
+    async function loadFamilyRelations() {
+        try {
+            const response = await fetch('/api/family-relations');
+            familyRelationsData = await response.json();
+        } catch (error) {
+            console.error('Error loading family relations:', error);
+        }
+    }
+
+    async function loadMaritalStatuses() {
+        try {
+            const response = await fetch('/api/marital-statuses');
+            maritalStatusesData = await response.json();
+        } catch (error) {
+            console.error('Error loading marital statuses:', error);
+        }
+    }
+
+    async function loadReligions() {
+        try {
+            const response = await fetch('/api/religions');
+            religionsData = await response.json();
+        } catch (error) {
+            console.error('Error loading religions:', error);
+        }
+    }
+
+    // Helper function to format option text with code
+    function formatOptionText(item) {
+        if (item.code) {
+            return `${item.code}. ${item.name}`;
+        }
+        return item.name;
     }
 
     // Calculate age from birth date
@@ -1084,6 +1139,39 @@ document.addEventListener('DOMContentLoaded', function() {
         return age;
     }
 
+    // Update age when birth date changes (receives date in yyyy-mm-dd format from flatpickr)
+    window.updateAge = function(memberId, dateStr) {
+        const ageInput = document.getElementById(`age-${memberId}`);
+
+        if (ageInput && dateStr) {
+            const age = calculateAge(dateStr);
+            ageInput.value = age >= 0 ? age : '';
+        }
+    };
+
+    // Initialize Flatpickr date picker for family member
+    function initializeDatePicker(memberId) {
+        const dateInput = document.getElementById(`tanggal_lahir_${memberId}`);
+        if (dateInput) {
+            flatpickr(dateInput, {
+                dateFormat: "d/m/Y",
+                altInput: true,
+                altFormat: "d/m/Y",
+                locale: "id",
+                allowInput: true,
+                maxDate: "today",
+                onChange: function(selectedDates, dateStr, instance) {
+                    if (selectedDates.length > 0) {
+                        // Format to yyyy-mm-dd for calculation
+                        const date = selectedDates[0];
+                        const isoDate = date.toISOString().split('T')[0];
+                        updateAge(memberId, isoDate);
+                    }
+                }
+            });
+        }
+    }
+
     window.addFamilyMember = function() {
         familyMemberCount++;
         const container = document.getElementById('family-members-list');
@@ -1091,10 +1179,30 @@ document.addEventListener('DOMContentLoaded', function() {
         memberDiv.className = 'border border-gray-300 rounded-lg p-4 space-y-3 bg-white';
         memberDiv.id = `member-${familyMemberCount}`;
 
-        // Build occupation options
-        let occupationOptions = '<option value="">Pilih Pekerjaan</option>';
-        occupationsData.forEach(occ => {
-            occupationOptions += `<option value="${occ.id}">${occ.name}</option>`;
+        // Build options from master data with code.name format
+        let familyRelationOptions = '<option value="">Hubungan Keluarga</option>';
+        familyRelationsData.forEach(item => {
+            familyRelationOptions += `<option value="${item.id}">${formatOptionText(item)}</option>`;
+        });
+
+        let religionOptions = '<option value="">Agama</option>';
+        religionsData.forEach(item => {
+            religionOptions += `<option value="${item.id}">${formatOptionText(item)}</option>`;
+        });
+
+        let maritalStatusOptions = '<option value="">Status Perkawinan</option>';
+        maritalStatusesData.forEach(item => {
+            maritalStatusOptions += `<option value="${item.id}">${formatOptionText(item)}</option>`;
+        });
+
+        let educationOptions = '<option value="">Pendidikan</option>';
+        educationsData.forEach(item => {
+            educationOptions += `<option value="${item.id}">${formatOptionText(item)}</option>`;
+        });
+
+        let occupationOptions = '<option value="">Pekerjaan</option>';
+        occupationsData.forEach(item => {
+            occupationOptions += `<option value="${item.id}">${formatOptionText(item)}</option>`;
         });
 
         memberDiv.innerHTML = `
@@ -1102,69 +1210,40 @@ document.addEventListener('DOMContentLoaded', function() {
                 <h4 class="font-semibold text-gray-800 text-sm">Anggota ${familyMemberCount}</h4>
             </div>
 
-            <input type="text" name="family_members[${familyMemberCount}][nik]" placeholder="NIK (16 digit)" class="uppercase w-full px-3 py-2 text-sm border rounded-lg" maxlength="16" pattern="[0-9]{16}" required>
+            <input type="text" name="family_members[${familyMemberCount}][nik]" placeholder="NIK (16 digit - opsional)" class="uppercase w-full px-3 py-2 text-sm border rounded-lg" maxlength="16" pattern="[0-9]{16}">
 
             <input type="text" name="family_members[${familyMemberCount}][nama_lengkap]" placeholder="Nama Lengkap" class="uppercase w-full px-3 py-2 text-sm border rounded-lg" required>
 
-            <select name="family_members[${familyMemberCount}][hubungan]" class="w-full px-3 py-2 text-sm border rounded-lg" required>
-                <option value="">Hubungan Keluarga</option>
-                <option value="Kepala Keluarga">Kepala Keluarga</option>
-                <option value="Istri">Istri</option>
-                <option value="Anak">Anak</option>
-                <option value="Menantu">Menantu</option>
-                <option value="Cucu">Cucu</option>
-                <option value="Orang Tua">Orang Tua</option>
-                <option value="Mertua">Mertua</option>
-                <option value="Famili Lain">Famili Lain</option>
-                <option value="Pembantu">Pembantu</option>
-                <option value="Lainnya">Lainnya</option>
+            <select name="family_members[${familyMemberCount}][hubungan]" id="hubungan-${familyMemberCount}" class="w-full px-3 py-2 text-sm border rounded-lg" required>
+                ${familyRelationOptions}
             </select>
 
-            <input type="text" name="family_members[${familyMemberCount}][tempat_lahir]" placeholder="Tempat Lahir" class="uppercase w-full px-3 py-2 text-sm border rounded-lg" required>
+            <input type="text" name="family_members[${familyMemberCount}][tempat_lahir]" placeholder="Tempat Lahir (opsional)" class="uppercase w-full px-3 py-2 text-sm border rounded-lg">
 
             <div class="flex gap-2">
-                <input type="date" name="family_members[${familyMemberCount}][tanggal_lahir]" class="flex-1 px-3 py-2 text-sm border rounded-lg" required onchange="updateAge(${familyMemberCount})">
+                <input type="text" name="family_members[${familyMemberCount}][tanggal_lahir]" id="tanggal_lahir_${familyMemberCount}" placeholder="dd/mm/yyyy" class="datepicker-dob flex-1 px-3 py-2 text-sm border rounded-lg" required data-member-id="${familyMemberCount}">
                 <input type="number" id="age-${familyMemberCount}" placeholder="Umur" class="w-20 px-3 py-2 text-sm border rounded-lg bg-gray-50" readonly>
             </div>
 
             <select name="family_members[${familyMemberCount}][jenis_kelamin]" class="w-full px-3 py-2 text-sm border rounded-lg" required>
                 <option value="">Jenis Kelamin</option>
-                <option value="L">Laki-laki</option>
-                <option value="P">Perempuan</option>
+                <option value="1">1. Pria</option>
+                <option value="2">2. Wanita</option>
             </select>
 
-            <select name="family_members[${familyMemberCount}][agama]" class="w-full px-3 py-2 text-sm border rounded-lg" required>
-                <option value="">Agama</option>
-                <option value="Islam">Islam</option>
-                <option value="Kristen">Kristen</option>
-                <option value="Katolik">Katolik</option>
-                <option value="Hindu">Hindu</option>
-                <option value="Buddha">Buddha</option>
-                <option value="Konghucu">Konghucu</option>
-                <option value="Lainnya">Lainnya</option>
+            <select name="family_members[${familyMemberCount}][status_perkawinan]" id="status_perkawinan-${familyMemberCount}" class="w-full px-3 py-2 text-sm border rounded-lg">
+                ${maritalStatusOptions}
             </select>
 
-            <select name="family_members[${familyMemberCount}][status_perkawinan]" class="w-full px-3 py-2 text-sm border rounded-lg" required>
-                <option value="">Status Perkawinan</option>
-                <option value="Belum Kawin">Belum Kawin</option>
-                <option value="Kawin">Kawin</option>
-                <option value="Cerai Hidup">Cerai Hidup</option>
-                <option value="Cerai Mati">Cerai Mati</option>
+            <select name="family_members[${familyMemberCount}][agama]" id="agama-${familyMemberCount}" class="w-full px-3 py-2 text-sm border rounded-lg">
+                ${religionOptions}
             </select>
 
-            <select name="family_members[${familyMemberCount}][pendidikan]" class="w-full px-3 py-2 text-sm border rounded-lg" required>
-                <option value="">Pendidikan</option>
-                <option value="Tidak/Belum Sekolah">Tidak/Belum Sekolah</option>
-                <option value="SD/Sederajat">SD/Sederajat</option>
-                <option value="SMP/Sederajat">SMP/Sederajat</option>
-                <option value="SMA/Sederajat">SMA/Sederajat</option>
-                <option value="D1/D2/D3">D1/D2/D3</option>
-                <option value="S1/D4">S1/D4</option>
-                <option value="S2">S2</option>
-                <option value="S3">S3</option>
+            <select name="family_members[${familyMemberCount}][pendidikan]" id="pendidikan-${familyMemberCount}" class="w-full px-3 py-2 text-sm border rounded-lg">
+                ${educationOptions}
             </select>
 
-            <select name="family_members[${familyMemberCount}][pekerjaan]" id="occupation-${familyMemberCount}" class="w-full px-3 py-2 text-sm border rounded-lg" required>
+            <select name="family_members[${familyMemberCount}][pekerjaan]" id="pekerjaan-${familyMemberCount}" class="w-full px-3 py-2 text-sm border rounded-lg">
                 ${occupationOptions}
             </select>
 
@@ -1201,7 +1280,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             </div>
                             <p class="text-xs text-gray-600 mb-2" id="ktpFileName_${familyMemberCount}"></p>
                             <button type="button" class="change-family-ktp-btn text-yellow-600 text-xs font-medium hover:text-yellow-700" data-member-id="${familyMemberCount}">
-                                🔄 Ganti File
+                                ⟳ Ganti File
                             </button>
                         </div>
                     </div>
@@ -1210,30 +1289,43 @@ document.addEventListener('DOMContentLoaded', function() {
 
             <div class="flex gap-2 mt-4 pt-3 border-t">
                 <button type="button" onclick="saveFamilyMember(${familyMemberCount})" class="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium text-sm">
-                    ✅ Simpan Anggota
+                    ✓ Simpan Anggota
                 </button>
                 <button type="button" onclick="removeFamilyMember(${familyMemberCount})" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-medium text-sm">
-                    🗑️ Hapus
+                    × Hapus
                 </button>
             </div>
         `;
         container.appendChild(memberDiv);
 
-        // Initialize Choices.js for occupation dropdown
-        const occupationSelect = document.getElementById(`occupation-${familyMemberCount}`);
-        if (occupationSelect) {
-            new Choices(occupationSelect, {
-                searchEnabled: true,
-                searchPlaceholderValue: 'Ketik untuk mencari pekerjaan...',
-                noResultsText: 'Tidak ada hasil',
-                itemSelectText: 'Tekan untuk memilih',
-                removeItemButton: false,
-                shouldSort: false
-            });
-        }
+        // Initialize Choices.js for all searchable dropdowns
+        const selectsToInitialize = [
+            { id: `hubungan-${familyMemberCount}`, placeholder: 'Ketik untuk mencari hubungan...' },
+            { id: `agama-${familyMemberCount}`, placeholder: 'Ketik untuk mencari agama...' },
+            { id: `status_perkawinan-${familyMemberCount}`, placeholder: 'Ketik untuk mencari status...' },
+            { id: `pendidikan-${familyMemberCount}`, placeholder: 'Ketik untuk mencari pendidikan...' },
+            { id: `pekerjaan-${familyMemberCount}`, placeholder: 'Ketik untuk mencari pekerjaan...' }
+        ];
+
+        selectsToInitialize.forEach(selectConfig => {
+            const selectElement = document.getElementById(selectConfig.id);
+            if (selectElement) {
+                new Choices(selectElement, {
+                    searchEnabled: true,
+                    searchPlaceholderValue: selectConfig.placeholder,
+                    noResultsText: 'Tidak ada hasil',
+                    itemSelectText: 'Tekan untuk memilih',
+                    removeItemButton: false,
+                    shouldSort: false
+                });
+            }
+        });
 
         // Initialize file upload for family member KTP
         initializeFamilyKtpUpload(familyMemberCount);
+
+        // Initialize Flatpickr for date of birth
+        initializeDatePicker(familyMemberCount);
 
         // Don't generate health questions yet - wait for user to save
         // generateHealthQuestionsForMember(familyMemberCount);
@@ -1281,7 +1373,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Update header
         const header = memberDiv.querySelector('h4');
         if (header) {
-            header.innerHTML = `Anggota ${memberId} - ${nama} <span class="text-green-600 text-xs ml-2">✅ Tersimpan</span>`;
+            header.innerHTML = `Anggota ${memberId} - ${nama} <span class="text-green-600 text-xs ml-2">� Tersimpan</span>`;
         }
 
         // Replace buttons with edit/delete
@@ -1289,10 +1381,10 @@ document.addEventListener('DOMContentLoaded', function() {
         if (buttonContainer) {
             buttonContainer.innerHTML = `
                 <button type="button" onclick="editFamilyMember(${memberId})" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium text-sm">
-                    ✏️ Edit
+                    ✎ Edit
                 </button>
                 <button type="button" onclick="removeFamilyMember(${memberId})" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-medium text-sm">
-                    🗑️ Hapus
+                    × Hapus
                 </button>
             `;
         }
@@ -1300,7 +1392,14 @@ document.addEventListener('DOMContentLoaded', function() {
         // Now generate health questions for this member
         generateHealthQuestionsForMember(memberId);
 
+        // Show the "Tambah Anggota Keluarga" button after first save
+        const addButton = document.getElementById('add-family-member-btn');
+        if (addButton) {
+            addButton.classList.remove('hidden');
+        }
+
         showSuccess('Data anggota keluarga berhasil disimpan');
+    };
 
     // Edit family member
     window.editFamilyMember = function(memberId) {
@@ -1327,10 +1426,10 @@ document.addEventListener('DOMContentLoaded', function() {
         if (buttonContainer) {
             buttonContainer.innerHTML = `
                 <button type="button" onclick="saveFamilyMember(${memberId})" class="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium text-sm">
-                    ✅ Simpan Anggota
+                    ✓ Simpan Anggota
                 </button>
                 <button type="button" onclick="removeFamilyMember(${memberId})" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-medium text-sm">
-                    🗑️ Hapus
+                    × Hapus
                 </button>
             `;
         }
@@ -1431,7 +1530,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function handleFamilyKtpFile(file, memberId, placeholder, preview, previewContent, fileNameDisplay) {
         // Validate file size (2MB)
         if (file.size > 2048000) {
-            showNotification('❌ Ukuran file terlalu besar. Maksimal 2MB', 'error');
+            showNotification('...�� Ukuran file terlalu besar. Maksimal 2MB', 'error');
             document.getElementById(`family_ktp_${memberId}`).value = '';
             return;
         }
@@ -1444,7 +1543,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 fileNameDisplay.textContent = `📷 ${file.name} (${formatFileSize(file.size)})`;
                 placeholder.classList.add('hidden');
                 preview.classList.remove('hidden');
-                showNotification('✅ File berhasil diupload', 'success');
+                showNotification('� File berhasil diupload', 'success');
             };
             reader.readAsDataURL(file);
         } else if (file.type === 'application/pdf') {
@@ -1457,67 +1556,93 @@ document.addEventListener('DOMContentLoaded', function() {
             fileNameDisplay.textContent = `📄 ${file.name} (${formatFileSize(file.size)})`;
             placeholder.classList.add('hidden');
             preview.classList.remove('hidden');
-            showNotification('✅ File berhasil diupload', 'success');
+            showNotification('� File berhasil diupload', 'success');
         } else {
-            showNotification('❌ Format file tidak didukung. Gunakan JPG, PNG, atau PDF', 'error');
+            showNotification('...�� Format file tidak didukung. Gunakan JPG, PNG, atau PDF', 'error');
             document.getElementById(`family_ktp_${memberId}`).value = '';
         }
     }
 
     // Generate health questions per family member
-    function generateHealthQuestionsForMember(memberId) {
+    async function generateHealthQuestionsForMember(memberId) {
+        console.log('generateHealthQuestionsForMember dipanggil untuk member:', memberId);
+
+        // Get member name from the form
+        const memberDiv = document.getElementById(`member-${memberId}`);
+        let memberName = `Anggota ${memberId}`;
+        if (memberDiv) {
+            const namaInput = memberDiv.querySelector('input[name*="[nama_lengkap]"]');
+            if (namaInput && namaInput.value) {
+                memberName = namaInput.value;
+            }
+        }
+
         const healthContainer = document.getElementById('health-questions-container');
-        if (!healthContainer) return;
+        console.log('Health container found:', healthContainer);
+
+        if (!healthContainer) {
+            console.error('Health container tidak ditemukan!');
+            return;
+        }
+
+        // Hide the "no family members" notice
+        const noMembersNotice = document.getElementById('no-family-members-notice');
+        if (noMembersNotice) {
+            noMembersNotice.classList.add('hidden');
+        }
+
+        // Check if already exists
+        const existingDiv = document.getElementById(`health-member-${memberId}`);
+        if (existingDiv) {
+            console.log('Health questions sudah ada untuk member:', memberId);
+            return;
+        }
 
         const memberHealthDiv = document.createElement('div');
-        memberHealthDiv.className = 'border border-gray-300 rounded-lg p-4 mb-4 bg-gray-50';
+        memberHealthDiv.className = 'border border-gray-300 rounded-lg p-4 bg-white';
         memberHealthDiv.id = `health-member-${memberId}`;
         memberHealthDiv.innerHTML = `
-            <h4 class="font-semibold text-gray-800 mb-3">🩺 Gangguan Kesehatan - Anggota ${memberId}</h4>
+            <h4 class="font-semibold text-gray-800 mb-3 pb-2 border-b">${memberName}</h4>
 
-            <div class="space-y-3">
+            <div class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Apakah memiliki gangguan kesehatan?</label>
-                    <select name="health[${memberId}][has_health_issue]" class="w-full px-3 py-2 text-sm border rounded-lg" onchange="toggleHealthDetails(${memberId}, this.value)">
-                        <option value="">Pilih...</option>
-                        <option value="tidak">Tidak ada gangguan</option>
-                        <option value="ya">Ada gangguan kesehatan</option>
-                    </select>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">1. Apakah mempunyai kartu jaminan kesehatan atau JKN?</label>
+                    <div class="flex gap-4">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="health[${memberId}][jkn]" value="1" class="w-4 h-4 text-yellow-500">
+                            <span class="text-sm">1. Ya</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="health[${memberId}][jkn]" value="2" class="w-4 h-4 text-yellow-500">
+                            <span class="text-sm">2. Tidak</span>
+                        </label>
+                    </div>
                 </div>
 
-                <div id="health-details-${memberId}" style="display: none;" class="space-y-3">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Jenis Gangguan Kesehatan</label>
-                        <input type="text" name="health[${memberId}][issue_type]" placeholder="Contoh: Diabetes, Hipertensi, dll" class="uppercase w-full px-3 py-2 text-sm border rounded-lg">
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Sejak Kapan?</label>
-                        <input type="date" name="health[${memberId}][since_date]" class="w-full px-3 py-2 text-sm border rounded-lg">
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Apakah sedang dalam pengobatan?</label>
-                        <select name="health[${memberId}][under_treatment]" class="w-full px-3 py-2 text-sm border rounded-lg">
-                            <option value="">Pilih...</option>
-                            <option value="ya">Ya, sedang berobat</option>
-                            <option value="tidak">Tidak berobat</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Tempat Berobat</label>
-                        <input type="text" name="health[${memberId}][treatment_place]" placeholder="Puskesmas/RS/Klinik" class="uppercase w-full px-3 py-2 text-sm border rounded-lg">
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Catatan Tambahan</label>
-                        <textarea name="health[${memberId}][notes]" rows="2" placeholder="Keterangan tambahan..." class="uppercase w-full px-3 py-2 text-sm border rounded-lg"></textarea>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">2. Apakah Saudara merokok?</label>
+                    <div class="flex flex-col gap-2">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="health[${memberId}][merokok]" value="1" class="w-4 h-4 text-yellow-500">
+                            <span class="text-sm">1. Ya (setiap hari, sering/kadang-kadang)</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="health[${memberId}][merokok]" value="2" class="w-4 h-4 text-yellow-500">
+                            <span class="text-sm">2. Tidak (tidak/sudah berhenti)</span>
+                        </label>
                     </div>
                 </div>
             </div>
         `;
+
         healthContainer.appendChild(memberHealthDiv);
+        console.log('Health questions berhasil ditambahkan untuk member:', memberId);
+
+        // Highlight section yang baru ditambahkan
+        memberHealthDiv.classList.add('ring-2', 'ring-green-400');
+        setTimeout(() => {
+            memberHealthDiv.classList.remove('ring-2', 'ring-green-400');
+        }, 2000);
     }
 
     // Toggle health details
@@ -1591,7 +1716,7 @@ document.addEventListener('DOMContentLoaded', function() {
             choicesInstances[regencySelect.id].destroy();
         }
 
-        regencySelect.innerHTML = '<option value="">⏳ Memuat kabupaten/kota...</option>';
+        regencySelect.innerHTML = '<option value="">...�� Memuat kabupaten/kota...</option>';
 
         try {
             const response = await fetch(`/api/wilayah/regencies/${provinceCode}`);
@@ -1645,7 +1770,7 @@ document.addEventListener('DOMContentLoaded', function() {
             choicesInstances[districtSelect.id].destroy();
         }
 
-        districtSelect.innerHTML = '<option value="">⏳ Memuat kecamatan...</option>';
+        districtSelect.innerHTML = '<option value="">...�� Memuat kecamatan...</option>';
 
         try {
             const response = await fetch(`/api/wilayah/districts/${regencyCode}`);
@@ -1699,7 +1824,7 @@ document.addEventListener('DOMContentLoaded', function() {
             choicesInstances[villageSelect.id].destroy();
         }
 
-        villageSelect.innerHTML = '<option value="">⏳ Memuat desa/kelurahan...</option>';
+        villageSelect.innerHTML = '<option value="">...�� Memuat desa/kelurahan...</option>';
 
         try {
             const response = await fetch(`/api/wilayah/villages/${districtCode}`);
@@ -1873,8 +1998,15 @@ document.addEventListener('DOMContentLoaded', function() {
             loadingText.textContent = 'Memuat data provinsi...';
             await loadProvinces();
 
-            loadingText.textContent = 'Memuat data pekerjaan...';
-            await loadOccupations();
+            loadingText.textContent = 'Memuat data master...';
+            // Load all master data in parallel
+            await Promise.all([
+                loadOccupations(),
+                loadEducations(),
+                loadFamilyRelations(),
+                loadMaritalStatuses(),
+                loadReligions()
+            ]);
 
             loadingText.textContent = 'Memuat data puskesmas...';
             await loadPuskesmasList();
@@ -1888,6 +2020,12 @@ document.addEventListener('DOMContentLoaded', function() {
             loadingOverlay.style.opacity = '0';
             setTimeout(() => {
                 loadingOverlay.style.display = 'none';
+
+                // Auto-add first family member after page loads
+                const familyMembersList = document.getElementById('family-members-list');
+                if (familyMembersList && familyMembersList.children.length === 0) {
+                    addFamilyMember();
+                }
             }, 300);
         } catch (error) {
             console.error('Error initializing page data:', error);
@@ -1928,7 +2066,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 // Add OpenStreetMap tiles
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '© OpenStreetMap contributors',
+                    attribution: '...� OpenStreetMap contributors',
                     maxZoom: 19
                 }).addTo(map);
 
@@ -2047,7 +2185,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Show success message
                 const successMsg = document.createElement('div');
                 successMsg.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
-                successMsg.textContent = '✅ Lokasi GPS berhasil terdeteksi!';
+                successMsg.textContent = '� Lokasi GPS berhasil terdeteksi!';
                 document.body.appendChild(successMsg);
                 setTimeout(() => successMsg.remove(), 3000);
             },
@@ -2201,7 +2339,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 handleImageFile(file, questionId, placeholder, preview, previewImg, fileNameDisplay);
             } else {
-                showNotification('❌ File harus berupa gambar (JPG/PNG)', 'error');
+                showNotification('...�� File harus berupa gambar (JPG/PNG)', 'error');
             }
         });
     });
@@ -2276,13 +2414,13 @@ document.addEventListener('DOMContentLoaded', function() {
     function handleImageFile(file, questionId, placeholder, preview, previewImg, fileNameDisplay) {
         // Validate file type
         if (!file.type.startsWith('image/')) {
-            showNotification('❌ File harus berupa gambar (JPG, PNG, GIF, dll)', 'error');
+            showNotification('...�� File harus berupa gambar (JPG, PNG, GIF, dll)', 'error');
             return;
         }
 
         // Validate file size (2MB)
         if (file.size > 2048000) {
-            showNotification('❌ Ukuran file terlalu besar. Maksimal 2MB', 'error');
+            showNotification('...�� Ukuran file terlalu besar. Maksimal 2MB', 'error');
             document.getElementById(`image_${questionId}`).value = '';
             return;
         }
@@ -2299,7 +2437,7 @@ document.addEventListener('DOMContentLoaded', function() {
             answeredQuestions.add(questionId.toString());
             updateProgress();
 
-            showNotification('✅ Gambar berhasil diupload', 'success');
+            showNotification('� Gambar berhasil diupload', 'success');
         };
         reader.readAsDataURL(file);
     }
@@ -2308,7 +2446,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function handleGenericFile(file, questionId, placeholder, preview, previewContent, fileNameDisplay) {
         // Validate file size (5MB for generic files)
         if (file.size > 5242880) {
-            showNotification('❌ Ukuran file terlalu besar. Maksimal 5MB', 'error');
+            showNotification('...�� Ukuran file terlalu besar. Maksimal 5MB', 'error');
             document.getElementById(`file_${questionId}`).value = '';
             return;
         }
@@ -2326,7 +2464,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 answeredQuestions.add(questionId.toString());
                 updateProgress();
 
-                showNotification('✅ File berhasil diupload', 'success');
+                showNotification('� File berhasil diupload', 'success');
             };
             reader.readAsDataURL(file);
         } else if (file.type === 'application/pdf') {
@@ -2344,7 +2482,7 @@ document.addEventListener('DOMContentLoaded', function() {
             answeredQuestions.add(questionId.toString());
             updateProgress();
 
-            showNotification('✅ File berhasil diupload', 'success');
+            showNotification('� File berhasil diupload', 'success');
         } else {
             previewContent.innerHTML = `
                 <div class="text-center">
@@ -2360,7 +2498,7 @@ document.addEventListener('DOMContentLoaded', function() {
             answeredQuestions.add(questionId.toString());
             updateProgress();
 
-            showNotification('✅ File berhasil diupload', 'success');
+            showNotification('� File berhasil diupload', 'success');
         }
     }
 

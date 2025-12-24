@@ -31,7 +31,27 @@ Route::get('/citizen-types', [CitizenTypeController::class, 'index']);
 
 // Occupations (public)
 Route::get('/occupations', function() {
-    return App\Models\Occupation::select('id', 'name')->orderBy('name')->get();
+    return App\Models\Occupation::select('id', 'code', 'name')->orderBy('code')->get();
+});
+
+// Master Data - Educations (public)
+Route::get('/educations', function() {
+    return DB::table('educations')->select('id', 'code', 'name')->orderBy('code')->get();
+});
+
+// Master Data - Family Relations (public)
+Route::get('/family-relations', function() {
+    return DB::table('family_relations')->select('id', 'code', 'name')->orderBy('code')->get();
+});
+
+// Master Data - Marital Statuses (public)
+Route::get('/marital-statuses', function() {
+    return DB::table('marital_statuses')->select('id', 'code', 'name')->orderBy('code')->get();
+});
+
+// Master Data - Religions (public)
+Route::get('/religions', function() {
+    return DB::table('religions')->select('id', 'code', 'name')->orderBy('code')->get();
 });
 
 // Wilayah (public)
