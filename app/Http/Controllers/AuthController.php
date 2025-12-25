@@ -222,8 +222,16 @@ class AuthController extends Controller
 
         // Normalize phone number to 62xxx format
         $no_hp = preg_replace('/[^0-9]/', '', $request->no_hp);
-        $no_hp = ltrim($no_hp, '0');
-        if (!str_starts_with($no_hp, '62')) {
+        
+        // Handle different formats:
+        // 0812... -> 6282...
+        // 620812... -> 6282... (remove extra 0)
+        // 6282... -> 6282...
+        if (str_starts_with($no_hp, '0')) {
+            $no_hp = '62' . substr($no_hp, 1);
+        } elseif (str_starts_with($no_hp, '620')) {
+            $no_hp = '62' . substr($no_hp, 3);
+        } elseif (!str_starts_with($no_hp, '62')) {
             $no_hp = '62' . $no_hp;
         }
 

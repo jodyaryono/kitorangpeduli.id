@@ -97,19 +97,22 @@ class WhatsAppService
 
     /**
      * Format phone number to international format
+     * Handles formats: 0812..., 620812..., 6282...
      */
     protected function formatPhone(string $phone): string
     {
         // Remove spaces, dashes, and other characters
         $phone = preg_replace('/[^0-9]/', '', $phone);
 
-        // If starts with 0, replace with 62
+        // Handle different formats:
+        // 0812... -> 6282...
+        // 620812... -> 6282... (remove extra 0)
+        // 6282... -> 6282...
         if (str_starts_with($phone, '0')) {
             $phone = '62' . substr($phone, 1);
-        }
-
-        // If doesn't start with 62, add it
-        if (!str_starts_with($phone, '62')) {
+        } elseif (str_starts_with($phone, '620')) {
+            $phone = '62' . substr($phone, 3);
+        } elseif (!str_starts_with($phone, '62')) {
             $phone = '62' . $phone;
         }
 
