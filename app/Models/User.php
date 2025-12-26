@@ -59,11 +59,11 @@ class User extends Authenticatable implements FilamentUser
 
     public function canAccessPanel(Panel $panel): bool
     {
+        // Field officers are not allowed to access /admin panel
         return $this->is_active && in_array($this->role, [
             'admin',
             'opd_admin',
             'viewer',
-            'field_officer',
         ]);
     }
 
