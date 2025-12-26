@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="IbaYA5hOSN2oontrrGrDgSxpP5PICcYSzNRYSvo2">
+    <title>Masuk - KitorangPeduli.id</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <!-- Choices.js for searchable dropdowns -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
+
+    <!-- Leaflet.js for map picker -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        papua: {
+                            black: '#1a1a1a',
+                            yellow: '#FFD700',
+                            red: '#DC2626',
+                            dark: '#0d0d0d',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .papua-gradient { background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 50%, #1a1a1a 100%); }
+        .papua-gradient-gold { background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); }
+        .papua-text-gradient { background: linear-gradient(135deg, #FFD700, #FFA500); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+        /* Custom animations for registration form */
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .form-step.active {
+            animation: slideIn 0.3s ease-out;
+        }
+
+        /* Input focus effects */
+        input:focus, select:focus, textarea:focus {
+            transform: scale(1.01);
+            transition: all 0.2s ease;
+        }
+
+        /* Custom checkbox/radio styling */
+        .gender-option:has(input:checked) {
+            border-color: #FFD700 !important;
+            background-color: #FEF3C7 !important;
+        }
+
+        /* Force uppercase for specific inputs */
+        input.uppercase,
+        textarea.uppercase,
+        input[name*="nama"],
+        input[name*="alamat"],
+        input[name*="tempat"],
+        textarea[name*="alamat"] {
+            text-transform: uppercase !important;
+        }
+
+        /* Leaflet map fix */
+        .leaflet-container {
+            z-index: 1;
+        }
+    </style>
+    </head>
+<body class="bg-gray-100 min-h-screen">
+    <!-- Navigation -->
+    <nav class="papua-gradient shadow-xl border-b-4 border-yellow-500">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <a href="http://localhost:8000" class="flex items-center">
+                        <span class="text-2xl mr-2">🦅</span>
+                        <span class="text-yellow-400 text-xl font-bold">Kitorang</span>
+                        <span class="text-white text-xl font-bold">Peduli</span>
+                        <span class="text-red-500 text-xl font-bold">.id</span>
+                    </a>
+                </div>
+                <div class="flex items-center space-x-4">
+                                            <a href="http://localhost:8000/login" class="text-yellow-400 hover:text-yellow-300 text-sm font-medium transition">
+                            Masuk
+                        </a>
+                        <a href="http://localhost:8000/register" class="bg-yellow-500 text-black px-4 py-2 rounded-lg text-sm font-bold hover:bg-yellow-400 transition">
+                            Daftar
+                        </a>
+                                    </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main>
+        <div class="min-h-[70vh] flex items-center justify-center py-12 px-4">
+    <div class="max-w-md w-full">
+        <div class="bg-white rounded-2xl shadow-xl overflow-hidden border-t-4 border-yellow-500">
+            <div class="papua-gradient px-8 py-6">
+                <h2 class="text-2xl font-bold text-yellow-400 text-center">Masuk ke Akun</h2>
+                <p class="text-gray-300 text-center text-sm mt-1">Gunakan nomor HP yang terdaftar</p>
+            </div>
+
+            <div class="p-8">
+                
+                <form action="http://localhost:8000/login/send-otp" method="POST" id="loginForm">
+                    <input type="hidden" name="_token" value="IbaYA5hOSN2oontrrGrDgSxpP5PICcYSzNRYSvo2" autocomplete="off">                    <div class="mb-6">
+                        <label class="block text-gray-700 text-sm font-medium mb-2">Nomor HP (WhatsApp)</label>
+                        <div class="relative">
+                            <span class="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500">+62</span>
+                            <input type="tel" name="no_hp" id="no_hp"
+                                   value=""
+                                   class="w-full pl-14 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition"
+                                   placeholder="8123456789"
+                                   pattern="[0-9]{9,13}"
+                                   inputmode="numeric"
+                                   maxlength="13"
+                                   required>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">Contoh: 81234567890 (tanpa 0 di depan)</p>
+                    </div>
+
+                    <button type="submit"
+                            class="w-full bg-gray-900 text-yellow-400 py-3 rounded-lg font-medium hover:bg-black transition flex items-center justify-center border border-yellow-500">
+                        <span>Kirim Kode OTP</span>
+                        <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+                        </svg>
+                    </button>
+                </form>
+
+                <div class="mt-6 text-center">
+                    <p class="text-gray-600 text-sm">
+                        Belum punya akun?
+                        <a href="http://localhost:8000/register?intended=questionnaire&amp;id=8"
+                           class="text-yellow-600 font-medium hover:text-yellow-500 underline">
+                            Daftar Sekarang
+                        </a>
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-6 text-center">
+            <a href="http://localhost:8000" class="text-gray-600 text-sm hover:text-gray-800">
+                ← Kembali ke Beranda
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Only allow numeric input in phone number field
+    document.getElementById('no_hp').addEventListener('input', function(e) {
+        // Remove any non-numeric characters
+        this.value = this.value.replace(/[^0-9]/g, '');
+    });
+
+    // Prevent paste of non-numeric content
+    document.getElementById('no_hp').addEventListener('paste', function(e) {
+        e.preventDefault();
+        const pastedText = (e.clipboardData || window.clipboardData).getData('text');
+        const numericOnly = pastedText.replace(/[^0-9]/g, '');
+        this.value = numericOnly.substring(0, 13); // Max 13 digits
+    });
+</script>
+    </main>
+
+    <!-- Footer -->
+    <footer class="papua-gradient text-white py-8 mt-12 border-t-4 border-yellow-500">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center">
+                <div class="flex items-center justify-center mb-3">
+                    <span class="text-3xl mr-2">🦅</span>
+                    <span class="text-yellow-400 text-xl font-bold">Kitorang</span>
+                    <span class="text-white text-xl font-bold">Peduli</span>
+                    <span class="text-red-500 text-xl font-bold">.id</span>
+                </div>
+                <p class="text-gray-400 text-sm mt-2">Platform Survey untuk Pembangunan Kota Jayapura yang Lebih Baik</p>
+                <div class="flex justify-center gap-2 mt-4">
+                    <span class="w-8 h-2 bg-black rounded"></span>
+                    <span class="w-8 h-2 bg-yellow-500 rounded"></span>
+                    <span class="w-8 h-2 bg-red-600 rounded"></span>
+                </div>
+                <p class="text-gray-500 text-xs mt-4">&copy; 2025 KitorangPeduli.id. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Toast Notifications -->
+    
+    
+    </body>
+</html>

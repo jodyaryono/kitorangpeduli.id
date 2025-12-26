@@ -222,7 +222,7 @@ class AuthController extends Controller
 
         // Normalize phone number to 62xxx format
         $no_hp = preg_replace('/[^0-9]/', '', $request->no_hp);
-        
+
         // Handle different formats:
         // 0812... -> 6282...
         // 620812... -> 6282... (remove extra 0)
