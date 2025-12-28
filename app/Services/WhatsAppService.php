@@ -97,7 +97,7 @@ class WhatsAppService
 
     /**
      * Format phone number to international format
-     * Handles formats: 0812..., 620812..., 6282...
+     * Handles formats: 0812..., 812..., 6282..., 628...
      */
     protected function formatPhone(string $phone): string
     {
@@ -106,13 +106,15 @@ class WhatsAppService
 
         // Handle different formats:
         // 0812... -> 6282...
-        // 620812... -> 6282... (remove extra 0)
-        // 6282... -> 6282...
-        if (str_starts_with($phone, '0')) {
+        // 812... -> 62812...
+        // 6282... -> 6282... (already correct, return as-is)
+        if (str_starts_with($phone, '62')) {
+            // Already in correct format, return as-is
+            return $phone;
+        } elseif (str_starts_with($phone, '0')) {
             $phone = '62' . substr($phone, 1);
-        } elseif (str_starts_with($phone, '620')) {
-            $phone = '62' . substr($phone, 3);
-        } elseif (!str_starts_with($phone, '62')) {
+        } else {
+            // No leading 0 or 62, add 62
             $phone = '62' . $phone;
         }
 
