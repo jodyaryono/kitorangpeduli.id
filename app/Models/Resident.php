@@ -293,6 +293,29 @@ class Resident extends Model implements HasMedia
         return $this->tanggal_lahir?->age;
     }
 
+    /**
+     * Mutator: Auto-normalize phone to 62xxx format
+     */
+    public function setPhoneAttribute($value): void
+    {
+        if (empty($value)) {
+            $this->attributes['phone'] = $value;
+            return;
+        }
+
+        // Remove non-numeric characters
+        $normalized = preg_replace('/[^0-9]/', '', $value);
+
+        // Convert to 62xxx format
+        if (str_starts_with($normalized, '0')) {
+            $normalized = '62' . substr($normalized, 1);
+        } elseif (!str_starts_with($normalized, '62') && strlen($normalized) >= 9) {
+            $normalized = '62' . $normalized;
+        }
+
+        $this->attributes['phone'] = $normalized;
+    }
+
     public function generateOtp(): string
     {
         $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
