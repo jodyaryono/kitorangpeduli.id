@@ -136,6 +136,39 @@ class QuestionnaireController extends Controller
             }
 
             $questionId = $request->question_id;
+
+            // Handle file upload
+            if ($request->hasFile('file')) {
+                $file = $request->file('file');
+                $fileType = $request->file_type ?? 'file';
+                
+                // Store file
+                $path = $file->store('questionnaire_uploads', 'public');
+                
+                // Save file path as answer
+                $answerData = [
+                    'response_id' => $response->id,
+                    'question_id' => $questionId,
+                    'answer_text' => $file->getClientOriginalName(),
+                    'media_path' => $path,
+                ];
+
+                Answer::updateOrCreate(
+                    ['response_id' => $response->id, 'question_id' => $questionId],
+                    $answerData
+                );
+
+                \Log::info('File uploaded', [
+                    'question_id' => $questionId,
+                    'path' => $path,
+                    'type' => $fileType,
+                    'original_name' => $file->getClientOriginalName()
+                ]);
+
+                return response()->json(['success' => true, 'message' => 'File saved', 'path' => $path]);
+            }
+
+            // Handle regular answer
             $value = $request->answer;
 
             \Log::info('Autosave received', [

@@ -2437,7 +2437,10 @@ document.addEventListener('DOMContentLoaded', function() {
             answeredQuestions.add(questionId.toString());
             updateProgress();
 
-            showNotification('� Gambar berhasil diupload', 'success');
+            // Auto-save file upload
+            uploadFileToServer(file, questionId, 'image');
+
+            showNotification('✅ Gambar berhasil diupload', 'success');
         };
         reader.readAsDataURL(file);
     }
@@ -2482,7 +2485,10 @@ document.addEventListener('DOMContentLoaded', function() {
             answeredQuestions.add(questionId.toString());
             updateProgress();
 
-            showNotification('� File berhasil diupload', 'success');
+            // Auto-save file upload
+            uploadFileToServer(file, questionId, 'file');
+
+            showNotification('✅ File berhasil diupload', 'success');
         } else {
             previewContent.innerHTML = `
                 <div class="text-center">
@@ -2498,7 +2504,10 @@ document.addEventListener('DOMContentLoaded', function() {
             answeredQuestions.add(questionId.toString());
             updateProgress();
 
-            showNotification('� File berhasil diupload', 'success');
+            // Auto-save file upload
+            uploadFileToServer(file, questionId, 'file');
+
+            showNotification('✅ File berhasil diupload', 'success');
         }
     }
 
@@ -2509,6 +2518,35 @@ document.addEventListener('DOMContentLoaded', function() {
         const sizes = ['Bytes', 'KB', 'MB', 'GB'];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+    }
+
+    // Upload file to server
+    function uploadFileToServer(file, questionId, fileType) {
+        const formData = new FormData();
+        formData.append('question_id', questionId);
+        formData.append('file', file);
+        formData.append('file_type', fileType);
+
+        fetch('{{ route("questionnaire.autosave", $questionnaire->id) }}', {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('File uploaded successfully:', questionId);
+            } else {
+                console.error('File upload failed:', data.message);
+                showNotification('⚠️ Gagal menyimpan file ke server', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('File upload error:', error);
+            showNotification('⚠️ Gagal menyimpan file ke server', 'error');
+        });
     }
 
     // Show notification
