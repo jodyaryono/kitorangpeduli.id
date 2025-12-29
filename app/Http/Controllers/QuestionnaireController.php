@@ -244,8 +244,29 @@ class QuestionnaireController extends Controller
                 'family_members' => json_encode($familyMembersData)
             ]);
 
-            // Create/update residents records from family members
-            $family = Family::where('response_id', $response->id)->first();
+            // Get family - try multiple ways
+            $family = null;
+            
+            // Method 1: Via resident (if response has resident_id)
+            $resident = $response->resident;
+            if ($resident && $resident->family_id) {
+                $family = Family::find($resident->family_id);
+            }
+            
+            // Method 2: Find family by no_kk from answers (for officer-assisted entries)
+            if (!$family) {
+                // Get question IDs for no_kk (Q268 or Q223)
+                $noKkQuestionIds = [268, 223]; // Based on previous mapping
+                
+                $noKkAnswer = Answer::where('response_id', $response->id)
+                    ->whereIn('question_id', $noKkQuestionIds)
+                    ->whereNotNull('answer_text')
+                    ->first();
+                
+                if ($noKkAnswer && !empty($noKkAnswer->answer_text)) {
+                    $family = Family::where('no_kk', $noKkAnswer->answer_text)->first();
+                }
+            }
 
             if ($family) {
                 // Delete existing residents for this family (we'll recreate them)
@@ -286,10 +307,12 @@ class QuestionnaireController extends Controller
                 return response()->json([
                     'success' => true,
                     'message' => 'Family members saved successfully',
-                    'residents_count' => $residentsCount
+                    'residents_count' => $residentsCount,
+                    'family_id' => $family->id
                 ]);
             } else {
                 // Family not found yet, just save to response
+                \Log::info('Family not found for response', ['response_id' => $response->id]);
                 return response()->json([
                     'success' => true,
                     'message' => 'Family members saved to response (family record will be created on KK upload)',
@@ -419,10 +442,18 @@ class QuestionnaireController extends Controller
                 ]);
 
                 // Create residents records from family members
-                // First, get the family_id from this response
-                $family = \App\Models\Family::where('response_id', $response->id)->first();
+                // Get family via resident (families don't have response_id)
+                $resident = $response->resident;
+                $family = null;
+                
+                if ($resident && $resident->family_id) {
+                    $family = \App\Models\Family::find($resident->family_id);
+                }
 
                 if ($family) {
+                    // Delete existing residents for this family to avoid duplicates
+                    \App\Models\Resident::where('family_id', $family->id)->delete();
+                    
                     foreach ($familyMembersData as $memberData) {
                         // Parse tanggal_lahir from d/m/Y format
                         $tanggalLahir = null;

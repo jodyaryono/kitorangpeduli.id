@@ -1426,7 +1426,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             console.log('Family members saved:', data);
-            
+
             // Mark as saved but keep fields enabled (so they submit with form)
             memberDiv.classList.add('bg-green-50', 'border-green-300');
             memberDiv.querySelectorAll('input, select').forEach(field => {

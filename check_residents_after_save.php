@@ -14,7 +14,7 @@ echo "Total residents: {$count}\n\n";
 if ($count > 0) {
     echo "Latest residents:\n";
     echo str_repeat('-', 80) . "\n";
-    
+
     $residents = App\Models\Resident::latest()->limit(5)->get();
     foreach ($residents as $resident) {
         echo "\nResident ID: {$resident->id}\n";
@@ -47,16 +47,16 @@ foreach ($responses as $response) {
         echo "\nResponse ID: {$response->id}\n";
         echo "Status: {$response->status}\n";
         echo "Family members count: " . count($members) . "\n";
-        
+
         // Check if family exists
         $family = App\Models\Family::where('response_id', $response->id)->first();
         echo "Family ID: " . ($family ? $family->id : 'NULL') . "\n";
-        
+
         if ($family) {
             $residentsCount = App\Models\Resident::where('family_id', $family->id)->count();
             echo "Residents in family: {$residentsCount}\n";
         }
-        
+
         echo str_repeat('-', 40) . "\n";
     }
 }
