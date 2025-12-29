@@ -455,6 +455,9 @@
                                                     @break
 
                                                 @case('image')
+                                                    @php
+                                                        $hasExistingImage = $existingAnswer && $existingAnswer->media_path;
+                                                    @endphp
                                                     <div class="image-upload-container" data-question-id="{{ $question->id }}">
                                                         <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-yellow-400 transition cursor-pointer image-upload-area" id="imageUploadArea_{{ $question->id }}">
                                                             <input type="file"
@@ -464,15 +467,17 @@
                                                                    id="image_{{ $question->id }}"
                                                                    data-question-id="{{ $question->id }}"
                                                                    {{ $question->is_required ? 'required' : '' }}>
-                                                            <div class="image-placeholder" id="imagePlaceholder_{{ $question->id }}">
+                                                            <div class="image-placeholder {{ $hasExistingImage ? 'hidden' : '' }}" id="imagePlaceholder_{{ $question->id }}">
                                                                 <div class="text-4xl mb-2">🖼️</div>
                                                                 <p class="text-gray-600 font-medium">Klik untuk upload gambar</p>
                                                                 <p class="text-gray-400 text-sm mt-1">atau drag & drop</p>
                                                                 <p class="text-gray-400 text-xs mt-2">Format: JPG, PNG. Maksimal 2MB</p>
                                                             </div>
-                                                            <div class="image-preview hidden" id="imagePreview_{{ $question->id }}">
-                                                                <img src="" alt="Preview" class="max-h-64 mx-auto rounded-lg mb-3">
-                                                                <p class="text-sm text-gray-600 mb-2" id="imageFileName_{{ $question->id }}"></p>
+                                                            <div class="image-preview {{ $hasExistingImage ? '' : 'hidden' }}" id="imagePreview_{{ $question->id }}">
+                                                                <img src="{{ $hasExistingImage ? asset('storage/' . $existingAnswer->media_path) : '' }}" alt="Preview" class="max-h-64 mx-auto rounded-lg mb-3">
+                                                                <p class="text-sm text-gray-600 mb-2" id="imageFileName_{{ $question->id }}">
+                                                                    {{ $hasExistingImage ? '📷 ' . ($existingAnswer->answer_text ?? 'Uploaded Image') : '' }}
+                                                                </p>
                                                                 <button type="button" class="change-image-btn text-yellow-600 text-sm font-medium hover:text-yellow-700" data-question-id="{{ $question->id }}">
                                                                     🔄 Ganti Gambar
                                                                 </button>
@@ -598,6 +603,9 @@
                                                     @break
 
                                                 @case('file')
+                                                    @php
+                                                        $hasExistingFile = $existingAnswer && $existingAnswer->media_path;
+                                                    @endphp
                                                     <div class="file-upload-container" data-question-id="{{ $question->id }}">
                                                         <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-yellow-400 transition cursor-pointer file-upload-area" id="fileUploadArea_{{ $question->id }}">
                                                             <input type="file"
@@ -607,17 +615,32 @@
                                                                    data-question-id="{{ $question->id }}"
                                                                    accept="{{ $question->settings['accept'] ?? 'image/*,.pdf' }}"
                                                                    {{ $question->is_required ? 'required' : '' }}>
-                                                            <div class="file-placeholder" id="filePlaceholder_{{ $question->id }}">
+                                                            <div class="file-placeholder {{ $hasExistingFile ? 'hidden' : '' }}" id="filePlaceholder_{{ $question->id }}">
                                                                 <div class="text-4xl mb-2">📎</div>
                                                                 <p class="text-gray-600 font-medium">Klik untuk upload file</p>
                                                                 <p class="text-gray-400 text-sm mt-1">atau drag & drop</p>
                                                                 <p class="text-gray-400 text-xs mt-2">Format: Gambar atau PDF. Maksimal 5MB</p>
                                                             </div>
-                                                            <div class="file-preview hidden" id="filePreview_{{ $question->id }}">
+                                                            <div class="file-preview {{ $hasExistingFile ? '' : 'hidden' }}" id="filePreview_{{ $question->id }}">
                                                                 <div class="preview-content mb-3" id="filePreviewContent_{{ $question->id }}">
-                                                                    <!-- Preview will be inserted here -->
+                                                                    @if($hasExistingFile)
+                                                                        @php
+                                                                            $fileExt = pathinfo($existingAnswer->media_path, PATHINFO_EXTENSION);
+                                                                        @endphp
+                                                                        @if(in_array(strtolower($fileExt), ['jpg', 'jpeg', 'png', 'gif']))
+                                                                            <img src="{{ asset('storage/' . $existingAnswer->media_path) }}" alt="Preview" class="max-h-64 mx-auto rounded-lg">
+                                                                        @elseif(strtolower($fileExt) === 'pdf')
+                                                                            <div class="text-6xl">📄</div>
+                                                                            <p class="text-sm text-gray-600 mt-2">File PDF</p>
+                                                                        @else
+                                                                            <div class="text-6xl">📎</div>
+                                                                            <p class="text-sm text-gray-600 mt-2">File {{ strtoupper($fileExt) }}</p>
+                                                                        @endif
+                                                                    @endif
                                                                 </div>
-                                                                <p class="text-sm text-gray-600 mb-2" id="fileFileName_{{ $question->id }}"></p>
+                                                                <p class="text-sm text-gray-600 mb-2" id="fileFileName_{{ $question->id }}">
+                                                                    {{ $hasExistingFile ? '📎 ' . ($existingAnswer->answer_text ?? 'Uploaded File') : '' }}
+                                                                </p>
                                                                 <button type="button" class="change-file-btn text-yellow-600 text-sm font-medium hover:text-yellow-700" data-question-id="{{ $question->id }}">
                                                                     🔄 Ganti File
                                                                 </button>
@@ -2522,10 +2545,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Upload file to server
     function uploadFileToServer(file, questionId, fileType) {
+        console.log('uploadFileToServer called:', { file: file.name, questionId, fileType });
+
         const formData = new FormData();
         formData.append('question_id', questionId);
         formData.append('file', file);
         formData.append('file_type', fileType);
+
+        console.log('Sending to:', '{{ route("questionnaire.autosave", $questionnaire->id) }}');
+        console.log('FormData entries:');
+        for (let pair of formData.entries()) {
+            console.log(pair[0] + ':', pair[1]);
+        }
+
+        showNotification('⏳ Menyimpan file ke server...', 'info');
 
         fetch('{{ route("questionnaire.autosave", $questionnaire->id) }}', {
             method: 'POST',
@@ -2534,18 +2567,23 @@ document.addEventListener('DOMContentLoaded', function() {
             },
             body: formData
         })
-        .then(response => response.json())
+        .then(response => {
+            console.log('Response status:', response.status);
+            return response.json();
+        })
         .then(data => {
+            console.log('Response data:', data);
             if (data.success) {
                 console.log('File uploaded successfully:', questionId);
+                showNotification('✅ File berhasil disimpan ke database', 'success');
             } else {
                 console.error('File upload failed:', data.message);
-                showNotification('⚠️ Gagal menyimpan file ke server', 'error');
+                showNotification('⚠️ Gagal menyimpan file: ' + data.message, 'error');
             }
         })
         .catch(error => {
             console.error('File upload error:', error);
-            showNotification('⚠️ Gagal menyimpan file ke server', 'error');
+            showNotification('⚠️ Error: ' + error.message, 'error');
         });
     }
 

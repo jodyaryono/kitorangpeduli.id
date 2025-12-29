@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Answer;
+use App\Models\Family;
 use App\Models\Question;
 use App\Models\Questionnaire;
 use App\Models\Response;
@@ -141,10 +142,10 @@ class QuestionnaireController extends Controller
             if ($request->hasFile('file')) {
                 $file = $request->file('file');
                 $fileType = $request->file_type ?? 'file';
-                
+
                 // Store file
                 $path = $file->store('questionnaire_uploads', 'public');
-                
+
                 // Save file path as answer
                 $answerData = [
                     'response_id' => $response->id,
@@ -212,6 +213,9 @@ class QuestionnaireController extends Controller
                 ['response_id' => $response->id, 'question_id' => $questionId],
                 $answerData
             );
+
+            // Sync to families table if this is a family-related answer
+            $this->syncFamilyData($response);
 
             return response()->json(['success' => true, 'message' => 'Saved']);
         } catch (\Exception $e) {
@@ -357,6 +361,9 @@ class QuestionnaireController extends Controller
                 'completed_at' => now(),
             ]);
 
+            // Sync family data one final time
+            $this->syncFamilyData($response);
+
             DB::commit();
 
             // Clear officer-assisted session if applicable
@@ -391,5 +398,92 @@ class QuestionnaireController extends Controller
         }
 
         return view('questionnaire.success', compact('response', 'isOfficerAssisted'));
+    }
+
+    /**
+     * Sync family data from questionnaire answers to families table
+     */
+    private function syncFamilyData($response)
+    {
+        // Question IDs for family data (from questionnaire 8)
+        $familyQuestionMap = [
+            214 => 'province_id',      // Provinsi
+            215 => 'regency_id',       // Kabupaten/Kota
+            216 => 'district_id',      // Kecamatan
+            217 => 'village_id',       // Desa/Kelurahan
+            220 => 'rt',               // RT
+            219 => 'rw',               // RW
+            225 => 'alamat',           // Alamat
+            269 => 'kepala_keluarga',  // Nama Kepala Keluarga
+            223 => 'no_kk',            // Nomor Kartu Keluarga
+            266 => 'kk_image_path',    // Upload Kartu Keluarga
+        ];
+
+        // Get all answers for this response
+        $answers = Answer::where('response_id', $response->id)
+            ->whereIn('question_id', array_keys($familyQuestionMap))
+            ->get()
+            ->keyBy('question_id');
+
+        // Prepare family data
+        $familyData = [];
+        
+        foreach ($familyQuestionMap as $questionId => $column) {
+            $answer = $answers->get($questionId);
+            if (!$answer) continue;
+
+            if ($questionId == 266) {
+                // File upload - use media_path
+                if ($answer->media_path) {
+                    $familyData[$column] = $answer->media_path;
+                }
+            } else {
+                // Text/numeric answers
+                $value = $answer->answer_text ?? $answer->answer_numeric;
+                if ($value) {
+                    $familyData[$column] = $value;
+                }
+            }
+        }
+
+        // Only proceed if we have at least no_kk or kepala_keluarga
+        if (empty($familyData['no_kk']) && empty($familyData['kepala_keluarga'])) {
+            \Log::info('No KK data to sync', ['response_id' => $response->id]);
+            return;
+        }
+
+        // Get resident
+        $resident = $response->resident;
+        if (!$resident) {
+            \Log::warning('No resident found for response', ['response_id' => $response->id]);
+            return;
+        }
+
+        // Find or create family record
+        $family = null;
+        
+        if ($resident->family_id) {
+            // Update existing family
+            $family = Family::find($resident->family_id);
+        } elseif (!empty($familyData['no_kk'])) {
+            // Try to find by no_kk
+            $family = Family::where('no_kk', $familyData['no_kk'])->first();
+        }
+
+        if ($family) {
+            // Update existing family
+            $family->update($familyData);
+            \Log::info('Updated family record', ['family_id' => $family->id, 'data' => $familyData]);
+        } else {
+            // Create new family
+            $family = Family::create($familyData);
+            \Log::info('Created new family record', ['family_id' => $family->id, 'data' => $familyData]);
+        }
+
+        // Link resident to family if not already linked
+        if (!$resident->family_id || $resident->family_id != $family->id) {
+            $resident->update(['family_id' => $family->id]);
+            \Log::info('Linked resident to family', ['resident_id' => $resident->id, 'family_id' => $family->id]);
+        }
     }
 }
