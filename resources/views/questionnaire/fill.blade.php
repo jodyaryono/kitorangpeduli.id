@@ -2490,6 +2490,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 answeredQuestions.add(questionId.toString());
                 updateProgress();
 
+                // Auto-save file upload
+                uploadFileToServer(file, questionId, 'file');
+
                 showNotification('� File berhasil diupload', 'success');
             };
             reader.readAsDataURL(file);
