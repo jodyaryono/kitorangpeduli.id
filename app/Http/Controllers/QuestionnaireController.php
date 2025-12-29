@@ -166,6 +166,9 @@ class QuestionnaireController extends Controller
                     'original_name' => $file->getClientOriginalName()
                 ]);
 
+                // Sync to families table if this is a family-related answer
+                $this->syncFamilyData($response);
+
                 return response()->json(['success' => true, 'message' => 'File saved', 'path' => $path]);
             }
 
