@@ -1655,10 +1655,10 @@ document.addEventListener('DOMContentLoaded', function() {
         // First, ensure the health section is expanded by finding its parent section
         // and opening it if it's collapsed
         let healthContainer = document.getElementById('health-questions-container');
-        
+
         if (!healthContainer) {
             console.log('Health container tidak ditemukan, mencoba membuka section...');
-            
+
             // Find all section headers and click on the one containing health questions
             const sectionHeaders = document.querySelectorAll('[id^="health-per-member-"]');
             if (sectionHeaders.length > 0) {
@@ -1669,17 +1669,17 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (toggleButton) {
                         console.log('Membuka section health...');
                         toggleButton.click();
-                        
+
                         // Wait a bit for the section to open
                         await new Promise(resolve => setTimeout(resolve, 300));
-                        
+
                         // Try to find the container again
                         healthContainer = document.getElementById('health-questions-container');
                     }
                 }
             }
         }
-        
+
         console.log('Health container found:', healthContainer);
 
         if (!healthContainer) {

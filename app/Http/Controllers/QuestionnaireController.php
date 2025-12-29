@@ -230,10 +230,15 @@ class QuestionnaireController extends Controller
     public function saveFamilyMembers(Request $request, $id)
     {
         try {
+            \Log::info('saveFamilyMembers called', ['request' => $request->all()]);
+            
             $responseId = $request->input('response_id');
             $familyMembersData = json_decode($request->input('family_members'), true);
 
+            \Log::info('Parsed data', ['response_id' => $responseId, 'members_count' => count($familyMembersData ?? [])]);
+
             if (!$responseId || !$familyMembersData) {
+                \Log::error('Invalid data', ['response_id' => $responseId, 'has_members' => !empty($familyMembersData)]);
                 return response()->json(['success' => false, 'message' => 'Invalid data'], 400);
             }
 
@@ -243,18 +248,24 @@ class QuestionnaireController extends Controller
             $response->update([
                 'family_members' => json_encode($familyMembersData)
             ]);
+            \Log::info('Updated response family_members JSON');
 
             // Get family - try multiple ways
             $family = null;
 
             // Method 1: Via resident (if response has resident_id)
             $resident = $response->resident;
+            \Log::info('Method 1 - Via resident', ['has_resident' => !is_null($resident), 'family_id' => $resident?->family_id]);
+            
             if ($resident && $resident->family_id) {
                 $family = Family::find($resident->family_id);
+                \Log::info('Found family via resident', ['family_id' => $family?->id]);
             }
 
             // Method 2: Find family by no_kk from answers (for officer-assisted entries)
             if (!$family) {
+                \Log::info('Method 2 - Trying to find family by no_kk');
+                
                 // Get question IDs for no_kk (Q268 or Q223)
                 $noKkQuestionIds = [268, 223]; // Based on previous mapping
 
@@ -263,14 +274,20 @@ class QuestionnaireController extends Controller
                     ->whereNotNull('answer_text')
                     ->first();
 
+                \Log::info('no_kk answer', ['answer' => $noKkAnswer?->answer_text]);
+
                 if ($noKkAnswer && !empty($noKkAnswer->answer_text)) {
                     $family = Family::where('no_kk', $noKkAnswer->answer_text)->first();
+                    \Log::info('Found family by no_kk', ['family_id' => $family?->id, 'no_kk' => $noKkAnswer->answer_text]);
                 }
             }
 
             if ($family) {
+                \Log::info('Creating residents for family', ['family_id' => $family->id, 'members_count' => count($familyMembersData)]);
+                
                 // Delete existing residents for this family (we'll recreate them)
-                \App\Models\Resident::where('family_id', $family->id)->delete();
+                $deletedCount = \App\Models\Resident::where('family_id', $family->id)->delete();
+                \Log::info('Deleted existing residents', ['count' => $deletedCount]);
 
                 // Create new resident records
                 foreach ($familyMembersData as $memberData) {
@@ -285,7 +302,7 @@ class QuestionnaireController extends Controller
                     }
 
                     // Create resident record
-                    \App\Models\Resident::create([
+                    $resident = \App\Models\Resident::create([
                         'family_id' => $family->id,
                         'nama_lengkap' => $memberData['nama_lengkap'] ?? null,
                         'nik' => $memberData['nik'] ?? null,
@@ -301,9 +318,12 @@ class QuestionnaireController extends Controller
                         'golongan_darah' => $memberData['golongan_darah'] ?? null,
                         'phone' => $memberData['phone'] ?? null,
                     ]);
+                    \Log::info('Created resident', ['id' => $resident->id, 'nama' => $resident->nama_lengkap]);
                 }
 
                 $residentsCount = \App\Models\Resident::where('family_id', $family->id)->count();
+                \Log::info('Residents created successfully', ['count' => $residentsCount]);
+                
                 return response()->json([
                     'success' => true,
                     'message' => 'Family members saved successfully',
@@ -312,12 +332,13 @@ class QuestionnaireController extends Controller
                 ]);
             } else {
                 // Family not found yet, just save to response
-                \Log::info('Family not found for response', ['response_id' => $response->id]);
+                \Log::warning('Family not found for response', ['response_id' => $response->id]);
                 return response()->json([
                     'success' => true,
                     'message' => 'Family members saved to response (family record will be created on KK upload)',
                     'residents_count' => 0
                 ]);
+            }
             }
         } catch (\Exception $e) {
             \Log::error('Save family members error', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
