@@ -427,7 +427,7 @@ class QuestionnaireController extends Controller
 
         // Prepare family data
         $familyData = [];
-        
+
         foreach ($familyQuestionMap as $questionId => $column) {
             $answer = $answers->get($questionId);
             if (!$answer) continue;
@@ -461,7 +461,7 @@ class QuestionnaireController extends Controller
 
         // Find or create family record
         $family = null;
-        
+
         if ($resident->family_id) {
             // Update existing family
             $family = Family::find($resident->family_id);
