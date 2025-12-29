@@ -1698,7 +1698,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 select.innerHTML = '<option value="">Pilih Provinsi...</option>';
                 provinces.forEach(province => {
                     const option = document.createElement('option');
-                    option.value = province.name || province.nama;
+                    option.value = province.id || province.code || province.kode;
                     option.textContent = province.name || province.nama;
                     option.dataset.code = province.id || province.code || province.kode;
                     select.appendChild(option);
@@ -1752,7 +1752,7 @@ document.addEventListener('DOMContentLoaded', function() {
             regencySelect.innerHTML = '<option value="">Pilih Kabupaten/Kota...</option>';
             regencies.forEach(regency => {
                 const option = document.createElement('option');
-                option.value = regency.name || regency.nama;
+                option.value = regency.id || regency.code || regency.kode;
                 option.textContent = regency.name || regency.nama;
                 option.dataset.code = regency.id || regency.code || regency.kode;
                 regencySelect.appendChild(option);
@@ -1806,7 +1806,7 @@ document.addEventListener('DOMContentLoaded', function() {
             districtSelect.innerHTML = '<option value="">Pilih Kecamatan...</option>';
             districts.forEach(district => {
                 const option = document.createElement('option');
-                option.value = district.name || district.nama;
+                option.value = district.id || district.code || district.kode;
                 option.textContent = district.name || district.nama;
                 option.dataset.code = district.id || district.code || district.kode;
                 districtSelect.appendChild(option);
@@ -1860,7 +1860,7 @@ document.addEventListener('DOMContentLoaded', function() {
             villageSelect.innerHTML = '<option value="">Pilih Desa/Kelurahan...</option>';
             villages.forEach(village => {
                 const option = document.createElement('option');
-                option.value = village.name || village.nama;
+                option.value = village.id || village.code || village.kode;
                 option.textContent = village.name || village.nama;
                 option.dataset.code = village.id || village.code || village.kode;
                 villageSelect.appendChild(option);
