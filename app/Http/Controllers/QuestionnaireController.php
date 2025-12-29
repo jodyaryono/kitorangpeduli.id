@@ -227,6 +227,81 @@ class QuestionnaireController extends Controller
         }
     }
 
+    public function saveFamilyMembers(Request $request, $id)
+    {
+        try {
+            $responseId = $request->input('response_id');
+            $familyMembersData = json_decode($request->input('family_members'), true);
+
+            if (!$responseId || !$familyMembersData) {
+                return response()->json(['success' => false, 'message' => 'Invalid data'], 400);
+            }
+
+            $response = Response::findOrFail($responseId);
+
+            // Save family members to response
+            $response->update([
+                'family_members' => json_encode($familyMembersData)
+            ]);
+
+            // Create/update residents records from family members
+            $family = Family::where('response_id', $response->id)->first();
+
+            if ($family) {
+                // Delete existing residents for this family (we'll recreate them)
+                \App\Models\Resident::where('family_id', $family->id)->delete();
+
+                // Create new resident records
+                foreach ($familyMembersData as $memberData) {
+                    // Parse tanggal_lahir from d/m/Y format
+                    $tanggalLahir = null;
+                    if (isset($memberData['tanggal_lahir']) && !empty($memberData['tanggal_lahir'])) {
+                        try {
+                            $tanggalLahir = \Carbon\Carbon::createFromFormat('d/m/Y', $memberData['tanggal_lahir'])->format('Y-m-d');
+                        } catch (\Exception $e) {
+                            \Log::warning("Invalid date format for family member: " . $memberData['tanggal_lahir']);
+                        }
+                    }
+
+                    // Create resident record
+                    \App\Models\Resident::create([
+                        'family_id' => $family->id,
+                        'nama_lengkap' => $memberData['nama_lengkap'] ?? null,
+                        'nik' => $memberData['nik'] ?? null,
+                        'hubungan_keluarga' => $memberData['hubungan'] ?? null,
+                        'tempat_lahir' => $memberData['tempat_lahir'] ?? null,
+                        'tanggal_lahir' => $tanggalLahir,
+                        'umur' => $memberData['umur'] ?? null,
+                        'jenis_kelamin' => $memberData['jenis_kelamin'] ?? null,
+                        'status_kawin' => $memberData['status_perkawinan'] ?? null,
+                        'agama' => $memberData['agama'] ?? null,
+                        'pendidikan' => $memberData['pendidikan'] ?? null,
+                        'pekerjaan' => $memberData['pekerjaan'] ?? null,
+                        'golongan_darah' => $memberData['golongan_darah'] ?? null,
+                        'phone' => $memberData['phone'] ?? null,
+                    ]);
+                }
+
+                $residentsCount = \App\Models\Resident::where('family_id', $family->id)->count();
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Family members saved successfully',
+                    'residents_count' => $residentsCount
+                ]);
+            } else {
+                // Family not found yet, just save to response
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Family members saved to response (family record will be created on KK upload)',
+                    'residents_count' => 0
+                ]);
+            }
+        } catch (\Exception $e) {
+            \Log::error('Save family members error', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
     public function submit(Request $request, $id)
     {
         // Check if officer-assisted or regular respondent
@@ -346,7 +421,7 @@ class QuestionnaireController extends Controller
                 // Create residents records from family members
                 // First, get the family_id from this response
                 $family = \App\Models\Family::where('response_id', $response->id)->first();
-                
+
                 if ($family) {
                     foreach ($familyMembersData as $memberData) {
                         // Parse tanggal_lahir from d/m/Y format

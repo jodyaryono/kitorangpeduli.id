@@ -1386,45 +1386,91 @@ document.addEventListener('DOMContentLoaded', function() {
         const nik = nikInput.value;
         const nama = namaInput.value;
 
-        // Mark as saved but keep fields enabled (so they submit with form)
-        memberDiv.classList.add('bg-green-50', 'border-green-300');
-        memberDiv.querySelectorAll('input, select').forEach(field => {
-            field.readOnly = (field.tagName === 'INPUT'); // Only input can be readonly
-            if (field.tagName === 'SELECT') {
-                field.style.pointerEvents = 'none'; // Prevent select changes
-            }
-            field.classList.add('bg-gray-100', 'cursor-not-allowed');
+        // Collect all family members data from the form
+        const familyMembersData = [];
+        document.querySelectorAll('[id^="member-"]').forEach(member => {
+            const memberIndex = member.id.replace('member-', '');
+            const memberData = {
+                nik: member.querySelector(`input[name*="[${memberIndex}][nik]"]`)?.value || '',
+                nama_lengkap: member.querySelector(`input[name*="[${memberIndex}][nama_lengkap]"]`)?.value || '',
+                hubungan: member.querySelector(`select[name*="[${memberIndex}][hubungan]"]`)?.value || '',
+                tempat_lahir: member.querySelector(`input[name*="[${memberIndex}][tempat_lahir]"]`)?.value || '',
+                tanggal_lahir: member.querySelector(`input[name*="[${memberIndex}][tanggal_lahir]"]`)?.value || '',
+                umur: member.querySelector(`input[name*="[${memberIndex}][umur]"]`)?.value || '',
+                jenis_kelamin: member.querySelector(`select[name*="[${memberIndex}][jenis_kelamin]"]`)?.value || '',
+                status_perkawinan: member.querySelector(`select[name*="[${memberIndex}][status_perkawinan]"]`)?.value || '',
+                agama: member.querySelector(`select[name*="[${memberIndex}][agama]"]`)?.value || '',
+                pendidikan: member.querySelector(`select[name*="[${memberIndex}][pendidikan]"]`)?.value || '',
+                pekerjaan: member.querySelector(`select[name*="[${memberIndex}][pekerjaan]"]`)?.value || '',
+                golongan_darah: member.querySelector(`select[name*="[${memberIndex}][golongan_darah]"]`)?.value || '',
+                phone: member.querySelector(`input[name*="[${memberIndex}][phone]"]`)?.value || '',
+            };
+            familyMembersData.push(memberData);
         });
 
-        // Update header
-        const header = memberDiv.querySelector('h4');
-        if (header) {
-            header.innerHTML = `Anggota ${memberId} - ${nama} <span class="text-green-600 text-xs ml-2">� Tersimpan</span>`;
-        }
+        // Send to server via AJAX
+        const formData = new FormData();
+        formData.append('_token', '{{ csrf_token() }}');
+        formData.append('response_id', responseId);
+        formData.append('family_members', JSON.stringify(familyMembersData));
 
-        // Replace buttons with edit/delete
-        const buttonContainer = memberDiv.querySelector('.flex.gap-2');
-        if (buttonContainer) {
-            buttonContainer.innerHTML = `
-                <button type="button" onclick="editFamilyMember(${memberId})" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium text-sm">
-                    ✎ Edit
-                </button>
-                <button type="button" onclick="removeFamilyMember(${memberId})" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-medium text-sm">
-                    × Hapus
-                </button>
-            `;
-        }
+        console.log('Saving family members to database...', familyMembersData);
 
-        // Now generate health questions for this member
-        generateHealthQuestionsForMember(memberId);
+        fetch('{{ route("questionnaire.save-family-members", $questionnaire->id) }}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('Family members saved:', data);
+            
+            // Mark as saved but keep fields enabled (so they submit with form)
+            memberDiv.classList.add('bg-green-50', 'border-green-300');
+            memberDiv.querySelectorAll('input, select').forEach(field => {
+                field.readOnly = (field.tagName === 'INPUT'); // Only input can be readonly
+                if (field.tagName === 'SELECT') {
+                    field.style.pointerEvents = 'none'; // Prevent select changes
+                }
+                field.classList.add('bg-gray-100', 'cursor-not-allowed');
+            });
 
-        // Show the "Tambah Anggota Keluarga" button after first save
-        const addButton = document.getElementById('add-family-member-btn');
-        if (addButton) {
-            addButton.classList.remove('hidden');
-        }
+            // Update header
+            const header = memberDiv.querySelector('h4');
+            if (header) {
+                header.innerHTML = `Anggota ${memberId} - ${nama} <span class="text-green-600 text-xs ml-2">✓ Tersimpan</span>`;
+            }
 
-        showSuccess('Data anggota keluarga berhasil disimpan');
+            // Replace buttons with edit/delete
+            const buttonContainer = memberDiv.querySelector('.flex.gap-2');
+            if (buttonContainer) {
+                buttonContainer.innerHTML = `
+                    <button type="button" onclick="editFamilyMember(${memberId})" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium text-sm">
+                        ✎ Edit
+                    </button>
+                    <button type="button" onclick="removeFamilyMember(${memberId})" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-medium text-sm">
+                        × Hapus
+                    </button>
+                `;
+            }
+
+            // Now generate health questions for this member
+            generateHealthQuestionsForMember(memberId);
+
+            // Show the "Tambah Anggota Keluarga" button after first save
+            const addButton = document.getElementById('add-family-member-btn');
+            if (addButton) {
+                addButton.classList.remove('hidden');
+            }
+
+            showSuccess('Data anggota keluarga berhasil disimpan ke database');
+        })
+        .catch(error => {
+            console.error('Error saving family members:', error);
+            showError('Gagal menyimpan data anggota keluarga. Silakan coba lagi.');
+        });
     };
 
     // Edit family member

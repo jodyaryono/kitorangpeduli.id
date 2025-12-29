@@ -30,6 +30,7 @@ Route::post('/profile', [AuthController::class, 'updateProfile'])->name('profile
 Route::get('/questionnaire/{questionnaire}/preview', [QuestionnairePreviewController::class, 'show'])->name('questionnaire.preview')->middleware('auth');
 Route::get('/questionnaire/{id}/start', [QuestionnaireController::class, 'start'])->name('questionnaire.start');
 Route::post('/questionnaire/{id}/autosave', [QuestionnaireController::class, 'autosave'])->name('questionnaire.autosave');
+Route::post('/questionnaire/{id}/save-family-members', [QuestionnaireController::class, 'saveFamilyMembers'])->name('questionnaire.save-family-members');
 Route::post('/questionnaire/{id}/submit', [QuestionnaireController::class, 'submit'])->name('questionnaire.submit');
 Route::get('/questionnaire/success/{responseId}', [QuestionnaireController::class, 'success'])->name('questionnaire.success');
 
