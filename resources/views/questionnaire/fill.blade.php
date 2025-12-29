@@ -1652,11 +1652,39 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
 
-        const healthContainer = document.getElementById('health-questions-container');
+        // First, ensure the health section is expanded by finding its parent section
+        // and opening it if it's collapsed
+        let healthContainer = document.getElementById('health-questions-container');
+        
+        if (!healthContainer) {
+            console.log('Health container tidak ditemukan, mencoba membuka section...');
+            
+            // Find all section headers and click on the one containing health questions
+            const sectionHeaders = document.querySelectorAll('[id^="health-per-member-"]');
+            if (sectionHeaders.length > 0) {
+                const healthSection = sectionHeaders[0].closest('[x-data]');
+                if (healthSection) {
+                    // Try to open the section by triggering Alpine.js
+                    const toggleButton = healthSection.querySelector('h2');
+                    if (toggleButton) {
+                        console.log('Membuka section health...');
+                        toggleButton.click();
+                        
+                        // Wait a bit for the section to open
+                        await new Promise(resolve => setTimeout(resolve, 300));
+                        
+                        // Try to find the container again
+                        healthContainer = document.getElementById('health-questions-container');
+                    }
+                }
+            }
+        }
+        
         console.log('Health container found:', healthContainer);
 
         if (!healthContainer) {
-            console.error('Health container tidak ditemukan!');
+            console.error('Health container tidak ditemukan setelah mencoba membuka section!');
+            showError('Bagian kesehatan belum tersedia. Silakan refresh halaman dan coba lagi.', 'Error');
             return;
         }
 

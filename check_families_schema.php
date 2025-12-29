@@ -8,9 +8,9 @@ echo "Checking families table schema\n";
 echo str_repeat('=', 80) . "\n\n";
 
 $columns = DB::select("
-    SELECT column_name, data_type 
-    FROM information_schema.columns 
-    WHERE table_name = 'families' 
+    SELECT column_name, data_type
+    FROM information_schema.columns
+    WHERE table_name = 'families'
     ORDER BY ordinal_position
 ");
 
@@ -47,10 +47,10 @@ if ($count > 0) {
     echo "Family ID: {$family->id}\n";
     echo "No KK: {$family->no_kk}\n";
     echo "Alamat: {$family->alamat}\n";
-    
+
     // Try to find how family is linked to response
     echo "\nChecking family relationships...\n";
-    
+
     // Check if there's a column that could link to response
     $familyArray = $family->toArray();
     foreach ($familyArray as $key => $value) {

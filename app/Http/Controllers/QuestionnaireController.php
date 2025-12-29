@@ -246,23 +246,23 @@ class QuestionnaireController extends Controller
 
             // Get family - try multiple ways
             $family = null;
-            
+
             // Method 1: Via resident (if response has resident_id)
             $resident = $response->resident;
             if ($resident && $resident->family_id) {
                 $family = Family::find($resident->family_id);
             }
-            
+
             // Method 2: Find family by no_kk from answers (for officer-assisted entries)
             if (!$family) {
                 // Get question IDs for no_kk (Q268 or Q223)
                 $noKkQuestionIds = [268, 223]; // Based on previous mapping
-                
+
                 $noKkAnswer = Answer::where('response_id', $response->id)
                     ->whereIn('question_id', $noKkQuestionIds)
                     ->whereNotNull('answer_text')
                     ->first();
-                
+
                 if ($noKkAnswer && !empty($noKkAnswer->answer_text)) {
                     $family = Family::where('no_kk', $noKkAnswer->answer_text)->first();
                 }
@@ -445,7 +445,7 @@ class QuestionnaireController extends Controller
                 // Get family via resident (families don't have response_id)
                 $resident = $response->resident;
                 $family = null;
-                
+
                 if ($resident && $resident->family_id) {
                     $family = \App\Models\Family::find($resident->family_id);
                 }
@@ -453,7 +453,7 @@ class QuestionnaireController extends Controller
                 if ($family) {
                     // Delete existing residents for this family to avoid duplicates
                     \App\Models\Resident::where('family_id', $family->id)->delete();
-                    
+
                     foreach ($familyMembersData as $memberData) {
                         // Parse tanggal_lahir from d/m/Y format
                         $tanggalLahir = null;

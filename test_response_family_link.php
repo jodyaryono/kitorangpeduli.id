@@ -25,7 +25,7 @@ if ($resident) {
     echo "  Resident ID: {$resident->id}\n";
     echo "  Nama: {$resident->nama_lengkap}\n";
     echo "  Family ID: " . ($resident->family_id ?? 'NULL') . "\n";
-    
+
     // Check family
     if ($resident->family_id) {
         $family = App\Models\Family::find($resident->family_id);
@@ -34,11 +34,11 @@ if ($resident) {
             echo "  Family ID: {$family->id}\n";
             echo "  No KK: {$family->no_kk}\n";
             echo "  Alamat: {$family->alamat}\n";
-            
+
             // Check residents in this family
             $residentsCount = App\Models\Resident::where('family_id', $family->id)->count();
             echo "\n  Residents in this family: {$residentsCount}\n";
-            
+
             if ($residentsCount > 0) {
                 echo "\n  Family members:\n";
                 $residents = App\Models\Resident::where('family_id', $family->id)->get();
