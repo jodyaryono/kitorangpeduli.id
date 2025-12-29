@@ -342,6 +342,44 @@ class QuestionnaireController extends Controller
                 $response->update([
                     'family_members' => json_encode($familyMembersData)
                 ]);
+
+                // Create residents records from family members
+                // First, get the family_id from this response
+                $family = \App\Models\Family::where('response_id', $response->id)->first();
+                
+                if ($family) {
+                    foreach ($familyMembersData as $memberData) {
+                        // Parse tanggal_lahir from d/m/Y format
+                        $tanggalLahir = null;
+                        if (isset($memberData['tanggal_lahir']) && !empty($memberData['tanggal_lahir'])) {
+                            try {
+                                $tanggalLahir = \Carbon\Carbon::createFromFormat('d/m/Y', $memberData['tanggal_lahir'])->format('Y-m-d');
+                            } catch (\Exception $e) {
+                                // If format is invalid, leave as null
+                                \Log::warning("Invalid date format for family member: " . $memberData['tanggal_lahir']);
+                            }
+                        }
+
+                        // Create resident record
+                        \App\Models\Resident::create([
+                            'family_id' => $family->id,
+                            'nama_lengkap' => $memberData['nama_lengkap'] ?? null,
+                            'nik' => $memberData['nik'] ?? null,
+                            'hubungan_keluarga' => $memberData['hubungan'] ?? null,
+                            'tempat_lahir' => $memberData['tempat_lahir'] ?? null,
+                            'tanggal_lahir' => $tanggalLahir,
+                            'umur' => $memberData['umur'] ?? null,
+                            'jenis_kelamin' => $memberData['jenis_kelamin'] ?? null,
+                            'status_kawin' => $memberData['status_perkawinan'] ?? null,
+                            'agama' => $memberData['agama'] ?? null,
+                            'pendidikan' => $memberData['pendidikan'] ?? null,
+                            'pekerjaan' => $memberData['pekerjaan'] ?? null,
+                            'golongan_darah' => $memberData['golongan_darah'] ?? null,
+                            'phone' => $memberData['phone'] ?? null,
+                            'ktp_kia_path' => $memberData['ktp_kia_path'] ?? null,
+                        ]);
+                    }
+                }
             }
 
             // Handle health data per member

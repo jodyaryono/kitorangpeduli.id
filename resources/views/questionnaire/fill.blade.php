@@ -1386,10 +1386,13 @@ document.addEventListener('DOMContentLoaded', function() {
         const nik = nikInput.value;
         const nama = namaInput.value;
 
-        // Mark as saved and disable editing
+        // Mark as saved but keep fields enabled (so they submit with form)
         memberDiv.classList.add('bg-green-50', 'border-green-300');
         memberDiv.querySelectorAll('input, select').forEach(field => {
-            field.disabled = true;
+            field.readOnly = (field.tagName === 'INPUT'); // Only input can be readonly
+            if (field.tagName === 'SELECT') {
+                field.style.pointerEvents = 'none'; // Prevent select changes
+            }
             field.classList.add('bg-gray-100', 'cursor-not-allowed');
         });
 
@@ -1434,7 +1437,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Enable editing
         memberDiv.querySelectorAll('input, select').forEach(field => {
-            field.disabled = false;
+            field.readOnly = false;
+            if (field.tagName === 'SELECT') {
+                field.style.pointerEvents = 'auto';
+            }
             field.classList.remove('bg-gray-100', 'cursor-not-allowed');
         });
 

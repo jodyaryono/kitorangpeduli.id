@@ -117,6 +117,7 @@ class Resident extends Model implements HasMedia
         'otp_expires_at',
         'phone_verified_at',
         'ktp_image_path',
+        'ktp_kia_path',
         'selfie_ktp_path',
         'verification_status',
         'verified_by',
@@ -124,6 +125,13 @@ class Resident extends Model implements HasMedia
         'rejection_reason',
         'verification_notes',
         'updated_by_user_id',
+        // Text versions for questionnaire data
+        'hubungan_keluarga',
+        'agama',
+        'status_kawin',
+        'pekerjaan',
+        'pendidikan',
+        'umur',
     ];
 
     protected $casts = [
