@@ -419,9 +419,9 @@ class QuestionnaireController extends Controller
             221 => 'no_bangunan',      // No. Bangunan
             225 => 'alamat',           // Alamat
             268 => 'no_kk',            // No. Keluarga (actually Nomor KK)
-            269 => 'kepala_keluarga',  // Nama Kepala Keluarga
             223 => 'no_kk',            // Nomor Kartu Keluarga (KK) - fallback
             266 => 'kk_image_path',    // Upload Kartu Keluarga
+            // Note: kepala_keluarga (Q269) not needed - will be in family members
         ];
 
         // Get all answers for this response
