@@ -909,13 +909,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // Convert savedResidents array to object with sequential keys for compatibility
     @if(!empty($savedResidents))
         @foreach($savedResidents as $index => $resident)
-            savedFamilyMembers[{{ $index + 1 }}] = @json($resident);
+            savedFamilyMembers[{{ $index + 1 }}] = {!! json_encode($resident, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) !!};
         @endforeach
     @endif
 
     // Load saved health data from resident_health_responses table (not from response.health_data JSON)
-    const savedHealthData = @json($savedHealthData ?? []);
-    const savedResidents = @json($savedResidents ?? []);
+    const savedHealthData = {!! json_encode($savedHealthData ?? [], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) !!};
+    const savedResidents = {!! json_encode($savedResidents ?? [], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) !!};
 
     console.log('Saved family members:', savedFamilyMembers);
     console.log('Saved health data:', savedHealthData);
@@ -3543,7 +3543,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // SECTION VI: KUESIONER TAMBAHAN (Pertanyaan Per KELUARGA)
     // =====================================
     let healthQuestionsData = [];
-    let savedSectionVIAnswers = @json($savedSectionVIData ?? []);
+    let savedSectionVIAnswers = {!! json_encode($savedSectionVIData ?? [], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) !!};
 
     console.log('🔵 Loaded savedSectionVIData:', savedSectionVIAnswers);
     console.log('🔵 Response ID:', responseId);
