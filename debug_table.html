@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Debug Table</title>
+</head>
+
+<body>
+    <h2>Test: Apakah row sudah ada di tabel?</h2>
+    <script>
+        // Check if table has the row
+        const tbody = document.getElementById('family-members-tbody');
+        console.log('Table tbody:', tbody);
+        console.log('Table rows count:', tbody?.rows.length);
+        console.log('Table HTML:', tbody?.innerHTML);
+
+        // Check for specific row
+        const row = document.getElementById('member-row-1');
+        console.log('Row member-row-1:', row);
+        console.log('Row HTML:', row?.innerHTML);
+    </script>
+</body>
+
+</html>

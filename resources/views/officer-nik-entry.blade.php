@@ -228,7 +228,7 @@
                                     <td class="px-4 py-3 text-xs text-gray-500">{{ $entry->updated_at?->diffForHumans() ?? 'Baru saja' }}</td>
                                     <td class="px-4 py-3 text-center">
                                         @if($entry->status === 'in_progress')
-                                            <a href="{{ route('questionnaire.start', ['id' => $questionnaire->id]) }}"
+                                            <a href="{{ route('questionnaire.start', ['id' => $questionnaire->id, 'response_id' => $entry->id]) }}"
                                                class="px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded transition inline-block">
                                                 Lanjutkan
                                             </a>

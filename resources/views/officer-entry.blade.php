@@ -73,6 +73,7 @@
             <table class="w-full border-collapse">
                 <thead>
                     <tr class="bg-blue-500/20 border-b border-blue-500/30">
+                        <th class="px-4 py-3 text-left text-sm font-semibold text-blue-300">ID</th>
                         <th class="px-4 py-3 text-left text-sm font-semibold text-blue-300">Kuesioner</th>
                         <th class="px-4 py-3 text-left text-sm font-semibold text-blue-300">Responden</th>
                         <th class="px-4 py-3 text-left text-sm font-semibold text-blue-300">NIK</th>
@@ -83,10 +84,56 @@
                 </thead>
                 <tbody>
                     @foreach($recentEntries as $index => $entry)
+                        @php
+                            // Get kepala keluarga info if this is a family questionnaire
+                            $kepalaKeluarga = null;
+                            $nik = null;
+
+                            if ($entry->resident) {
+                                // Regular questionnaire with resident
+                                $kepalaKeluarga = $entry->resident->nama_lengkap;
+                                $nik = $entry->resident->nik;
+                            } elseif ($entry->resident_id) {
+                                // Has resident_id but not loaded
+                                $resident = \App\Models\Resident::find($entry->resident_id);
+                                if ($resident) {
+                                    $kepalaKeluarga = $resident->nama_lengkap;
+                                    $nik = $resident->nik;
+                                }
+                            } else {
+                                // Family questionnaire - find kepala keluarga from family
+                                $healthResponse = \App\Models\ResidentHealthResponse::where('response_id', $entry->id)
+                                    ->with('resident.family')
+                                    ->first();
+
+                                if ($healthResponse && $healthResponse->resident && $healthResponse->resident->family) {
+                                    $family = $healthResponse->resident->family;
+                                    // Find kepala keluarga (family_relation_id = 1)
+                                    $kepala = \App\Models\Resident::where('family_id', $family->id)
+                                        ->where('family_relation_id', 1)
+                                        ->first();
+
+                                    if ($kepala) {
+                                        $kepalaKeluarga = $kepala->nama_lengkap;
+                                        $nik = $kepala->nik;
+                                    } else {
+                                        // Fallback to first member
+                                        $firstMember = \App\Models\Resident::where('family_id', $family->id)
+                                            ->orderBy('id')
+                                            ->first();
+                                        if ($firstMember) {
+                                            $kepalaKeluarga = $firstMember->nama_lengkap;
+                                            $nik = $firstMember->nik;
+                                        }
+                                    }
+                                }
+                            }
+                        @endphp
                         <tr class="border-b border-gray-700 hover:bg-gray-800/50 transition {{ $index % 2 === 0 ? 'bg-gray-900/30' : 'bg-gray-800/10' }}">
+                            <td class="px-4 py-3 text-sm font-mono text-blue-400">#{{ $entry->id }}</td>
                             <td class="px-4 py-3 text-sm font-medium text-white">{{ $entry->questionnaire->title }}</td>
-                            <td class="px-4 py-3 text-sm text-gray-300">{{ $entry->respondent->nama_lengkap ?? 'N/A' }}</td>
-                            <td class="px-4 py-3 text-xs text-gray-400 font-mono">{{ $entry->respondent->nik ?? 'N/A' }}</td>
+                            <td class="px-4 py-3 text-sm text-gray-300">{{ $kepalaKeluarga ?? 'N/A' }}</td>
+                            <td class="px-4 py-3 text-xs text-gray-400 font-mono">{{ $nik ?? 'N/A' }}</td>
                             <td class="px-4 py-3 text-sm">
                                 @if($entry->status === 'completed')
                                     <span class="inline-flex items-center gap-1 px-2 py-1 bg-green-500/30 text-green-300 text-xs font-bold rounded">
@@ -108,7 +155,7 @@
                             <td class="px-4 py-3 text-xs text-gray-500">{{ $entry->updated_at?->diffForHumans() ?? 'Baru saja' }}</td>
                             <td class="px-4 py-3 text-center">
                                 @if($entry->status === 'in_progress')
-                                    <a href="{{ route('questionnaire.start', ['id' => $entry->questionnaire->id]) }}"
+                                    <a href="{{ route('questionnaire.start', ['id' => $entry->questionnaire->id, 'response_id' => $entry->id]) }}"
                                        class="px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded transition inline-block">
                                         Lanjutkan
                                     </a>

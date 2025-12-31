@@ -14,7 +14,7 @@ echo "Total residents: {$count}\n\n";
 if ($count > 0) {
     echo "Latest residents:\n";
     echo str_repeat('-', 80) . "\n";
-    
+
     $residents = App\Models\Resident::orderBy('created_at', 'desc')->limit(5)->get();
     foreach ($residents as $resident) {
         echo "ID: {$resident->id} | {$resident->nama_lengkap} ({$resident->hubungan_keluarga})\n";
@@ -25,19 +25,19 @@ if ($count > 0) {
     echo "❌ NO RESIDENTS YET!\n\n";
     echo "Checking response family_members JSON:\n";
     echo str_repeat('-', 80) . "\n";
-    
+
     $response = App\Models\Response::find(2);
     if ($response) {
         echo "Response ID: {$response->id}\n";
         echo "Status: {$response->status}\n";
-        
+
         $members = json_decode($response->family_members, true);
         if ($members && is_array($members) && count($members) > 0) {
             echo "\n✅ family_members JSON exists with " . count($members) . " members:\n";
             foreach ($members as $idx => $member) {
                 echo "  #{$idx}: {$member['nama_lengkap']} - {$member['hubungan']}\n";
             }
-            
+
             echo "\n⚠️ Data ada di JSON tapi TIDAK di residents table!\n";
             echo "Ini berarti saveFamilyMembers() tidak dipanggil atau gagal.\n";
         } else {
@@ -55,7 +55,7 @@ $logFile = storage_path('logs/laravel.log');
 if (file_exists($logFile)) {
     $lines = file($logFile);
     $recentErrors = array_slice($lines, -50); // Last 50 lines
-    
+
     $found = false;
     foreach ($recentErrors as $line) {
         if (stripos($line, 'family') !== false || stripos($line, 'resident') !== false || stripos($line, 'error') !== false) {
@@ -63,7 +63,7 @@ if (file_exists($logFile)) {
             $found = true;
         }
     }
-    
+
     if (!$found) {
         echo "No recent errors related to family/resident\n";
     }

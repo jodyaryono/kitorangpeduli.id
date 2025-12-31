@@ -234,6 +234,12 @@ class Resident extends Model implements HasMedia
         return $this->hasMany(Response::class, 'resident_id');
     }
 
+    // Relasi Health Responses
+    public function healthResponses(): HasMany
+    {
+        return $this->hasMany(ResidentHealthResponse::class, 'resident_id');
+    }
+
     // Scopes
     public function scopePending($query)
     {

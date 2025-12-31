@@ -216,8 +216,18 @@ class OfficerEntryController extends Controller
             return back()->withErrors(['nik' => 'Responden ini sudah mengisi kuesioner ini.'])->withInput();
         }
 
-        // Get or create response
-        $response = $existing ?: Response::create([
+        // If there's an in_progress response, redirect to continue it (don't create new)
+        if ($existing && $existing->status === 'in_progress') {
+            return redirect()
+                ->route('questionnaire.start', [
+                    'id' => $questionnaire->id,
+                    'response_id' => $existing->id
+                ])
+                ->with('info', 'Melanjutkan pengisian kuesioner yang sedang berlangsung untuk ' . $respondent->nama_lengkap);
+        }
+
+        // Create new response (only if no existing response or existing is not in_progress)
+        $response = Response::create([
             'questionnaire_id' => $questionnaire->id,
             'resident_id' => $respondent->id,
             'entered_by_user_id' => $user->id,
@@ -236,9 +246,12 @@ class OfficerEntryController extends Controller
             ],
         ]);
 
-        // Redirect to questionnaire start route (same as regular respondent flow)
+        // Redirect to questionnaire start route WITH response_id to prevent duplicate creation
         return redirect()
-            ->route('questionnaire.start', ['id' => $questionnaire->id])
+            ->route('questionnaire.start', [
+                'id' => $questionnaire->id,
+                'response_id' => $response->id
+            ])
             ->with('success', 'Mulai mengisi kuesioner untuk ' . $respondent->nama_lengkap);
     }
 

@@ -116,8 +116,8 @@ class GeminiReportService
             ->get();
 
         // Demographics summary
-        $maleCount = $responses->filter(fn($r) => $r->resident?->jenis_kelamin === 'L')->count();
-        $femaleCount = $responses->filter(fn($r) => $r->resident?->jenis_kelamin === 'P')->count();
+        $maleCount = $responses->filter(fn($r) => $r->resident?->jenis_kelamin === '1')->count();
+        $femaleCount = $responses->filter(fn($r) => $r->resident?->jenis_kelamin === '2')->count();
 
         $context .= "DEMOGRAPHICS:\n";
         $context .= "- Male: {$maleCount}\n";

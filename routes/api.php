@@ -99,3 +99,35 @@ Route::middleware('auth:sanctum')->group(function () {
     // Puskesmas (create on-the-fly)
     Route::post('/puskesmas', [PuskesmasController::class, 'store']);
 });
+
+// Health Questions (public - for questionnaire form)
+Route::get('/health-questions', function() {
+    return App\Models\HealthQuestionCategory::with(['questions' => function($q) {
+        $q->where('is_active', true)
+          ->orderBy('order')
+          ->with(['options' => function($o) {
+              $o->orderBy('order');
+          }, 'tableRows' => function($t) {
+              $t->orderBy('order');
+          }]);
+    }])
+    ->where('is_active', true)
+    ->orderBy('order')
+    ->get();
+});
+
+// Health Questions by Category (for specific category)
+Route::get('/health-questions/{categoryCode}', function($categoryCode) {
+    return App\Models\HealthQuestionCategory::with(['questions' => function($q) {
+        $q->where('is_active', true)
+          ->orderBy('order')
+          ->with(['options' => function($o) {
+              $o->orderBy('order');
+          }, 'tableRows' => function($t) {
+              $t->orderBy('order');
+          }]);
+    }])
+    ->where('code', $categoryCode)
+    ->where('is_active', true)
+    ->first();
+});

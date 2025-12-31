@@ -68,19 +68,6 @@
                 <div class="text-xs text-gray-500">dari {{ $actualQuestions->count() }}</div>
             </div>
         </div>
-        <!-- Mini Progress Bar -->
-        <div class="mt-2">
-            <div class="w-full bg-gray-200 rounded-full h-1.5">
-                <div class="bg-gradient-to-r from-yellow-500 to-yellow-400 h-1.5 rounded-full transition-all duration-300"
-                     id="stickyProgressBar" style="width: 0%"></div>
-            </div>
-            <div class="flex items-center justify-between mt-1">
-                <span class="text-xs text-gray-500">
-                    <span id="stickyAnsweredCount">0</span>/{{ $actualQuestions->count() }} terjawab
-                </span>
-                <span class="text-xs font-medium text-yellow-600" id="stickyProgressPercent">0%</span>
-            </div>
-        </div>
     </div>
 </div>
 
@@ -109,21 +96,6 @@
             @endif
         </div>
 
-        <!-- Progress Bar -->
-        <div class="bg-white rounded-xl shadow px-4 py-3 mb-6">
-            <div class="flex items-center justify-between mb-2">
-                <span class="text-sm text-gray-600">Progres</span>
-                <span class="text-sm font-medium text-yellow-600" id="progressPercent">0%</span>
-            </div>
-            <div class="w-full bg-gray-200 rounded-full h-2">
-                <div class="bg-gradient-to-r from-yellow-500 to-yellow-400 h-2 rounded-full transition-all duration-300"
-                     id="progressBar" style="width: 0%"></div>
-            </div>
-            <div class="text-xs text-gray-500 mt-1">
-                <span id="answeredCount">0</span> dari <span id="totalQuestions">{{ $actualQuestions->count() }}</span> pertanyaan terjawab
-            </div>
-        </div>
-
         <!-- Form -->
         <form action="{{ route('questionnaire.submit', $questionnaire->id) }}" method="POST" enctype="multipart/form-data" id="surveyForm">
             @csrf
@@ -149,6 +121,11 @@
             <div class="space-y-6">
                 @foreach($questionnaire->questions as $section)
                     @if($section->is_section)
+                        {{-- Skip Section V - will be rendered dynamically below --}}
+                        @if(stripos($section->question_text, 'V. GANGGUAN KESEHATAN') !== false)
+                            @continue
+                        @endif
+
                         {{-- Section Header with Collapse/Expand --}}
                         <div x-data="{ open: true }" class="border border-gray-200 rounded-xl shadow-lg overflow-hidden">
                             <div @click="open = !open"
@@ -195,6 +172,41 @@
 
                                         $existingAnswer = $existingAnswers->get($question->id);
                                         $savedValue = $existingAnswer ? ($existingAnswer->selected_options ?? $existingAnswer->answer_text ?? $existingAnswer->answer_numeric) : null;
+
+                                        // Debug log for troubleshooting
+                                        if ($savedValue && config('app.debug')) {
+                                            \Log::info("Loading Q{$question->id}: savedValue = {$savedValue}");
+                                        }
+
+                                        // Auto-fill from savedFamily if available
+                                        if (isset($savedFamily) && !$savedValue) {
+                                            // Match question type for wilayah dropdowns
+                                            if ($question->question_type === 'province') {
+                                                $savedValue = $savedFamily['province_id'] ?? null;
+                                            } elseif ($question->question_type === 'regency') {
+                                                $savedValue = $savedFamily['regency_id'] ?? null;
+                                            } elseif ($question->question_type === 'district') {
+                                                $savedValue = $savedFamily['district_id'] ?? null;
+                                            } elseif ($question->question_type === 'village') {
+                                                $savedValue = $savedFamily['village_id'] ?? null;
+                                            } elseif ($question->question_type === 'puskesmas') {
+                                                $savedValue = $savedFamily['puskesmas_id'] ?? null;
+                                            }
+
+                                            // Match question text for text fields (RT, RW, etc.)
+                                            $questionText = strtolower($question->question_text);
+                                            if (str_contains($questionText, 'rt') && !str_contains($questionText, 'kartu')) {
+                                                $savedValue = $savedFamily['rt'] ?? null;
+                                            } elseif (str_contains($questionText, 'rw')) {
+                                                $savedValue = $savedFamily['rw'] ?? null;
+                                            } elseif (str_contains($questionText, 'no. bangunan') || str_contains($questionText, 'bangunan')) {
+                                                $savedValue = $savedFamily['no_bangunan'] ?? null;
+                                            } elseif (str_contains($questionText, 'no. keluarga') || str_contains($questionText, 'no keluarga')) {
+                                                $savedValue = $savedFamily['no_kk'] ?? null;
+                                            } elseif (str_contains($questionText, 'alamat')) {
+                                                $savedValue = $savedFamily['alamat'] ?? null;
+                                            }
+                                        }
                                     @endphp
 
                                     <div class="bg-white rounded-xl shadow-md p-6">
@@ -382,8 +394,33 @@
 
                                                 @case('family_members')
                                                     <div class="space-y-3">
-                                                        <div id="family-members-list" class="space-y-2"></div>
-                                                        <button type="button" id="add-family-member-btn" onclick="addFamilyMember()" class="hidden w-full px-4 py-2 bg-yellow-500 text-black rounded-lg hover:bg-yellow-600 transition font-medium text-sm">
+                                                        <!-- Tabel List Anggota Keluarga -->
+                                                        <div id="family-members-table-container" class="overflow-x-auto">
+                                                            <table class="w-full text-sm border-collapse" id="family-members-table">
+                                                                <thead class="bg-gray-100">
+                                                                    <tr>
+                                                                        <th class="border px-2 py-2 text-left">No</th>
+                                                                        <th class="border px-2 py-2 text-left">NIK</th>
+                                                                        <th class="border px-2 py-2 text-left">Nama</th>
+                                                                        <th class="border px-2 py-2 text-left">Status Keluarga</th>
+                                                                        <th class="border px-2 py-2 text-left">Jenis Kelamin</th>
+                                                                        <th class="border px-2 py-2 text-left">Umur</th>
+                                                                        <th class="border px-2 py-2 text-center">Aksi</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody id="family-members-tbody">
+                                                                    <tr id="no-members-row">
+                                                                        <td colspan="7" class="border px-2 py-4 text-center text-gray-500">Belum ada anggota keluarga</td>
+                                                                    </tr>
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+
+                                                        <!-- Hidden container for form data -->
+                                                        <div id="family-members-list" class="hidden"></div>
+
+                                                        <!-- Tombol Tambah -->
+                                                        <button type="button" onclick="openFamilyMemberModal()" class="w-full px-4 py-2 bg-yellow-500 text-black rounded-lg hover:bg-yellow-600 transition font-medium text-sm">
                                                             + Tambah Anggota Keluarga
                                                         </button>
                                                     </div>
@@ -605,6 +642,17 @@
                                                 @case('file')
                                                     @php
                                                         $hasExistingFile = $existingAnswer && $existingAnswer->media_path;
+
+                                                        // Check if this is KK upload and we have savedFamily data
+                                                        $questionText = strtolower($question->question_text);
+                                                        $isFamilyKKUpload = str_contains($questionText, 'kartu keluarga') || str_contains($questionText, 'upload kk');
+
+                                                        if (!$hasExistingFile && $isFamilyKKUpload && isset($savedFamily['kk_image_path']) && $savedFamily['kk_image_path']) {
+                                                            $hasExistingFile = true;
+                                                            $existingKKPath = $savedFamily['kk_image_path'];
+                                                        } else {
+                                                            $existingKKPath = null;
+                                                        }
                                                     @endphp
                                                     <div class="file-upload-container" data-question-id="{{ $question->id }}">
                                                         <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-yellow-400 transition cursor-pointer file-upload-area" id="fileUploadArea_{{ $question->id }}">
@@ -614,7 +662,7 @@
                                                                    class="hidden file-file-input"
                                                                    data-question-id="{{ $question->id }}"
                                                                    accept="{{ $question->settings['accept'] ?? 'image/*,.pdf' }}"
-                                                                   {{ $question->is_required ? 'required' : '' }}>
+                                                                   {{ $question->is_required && !$hasExistingFile ? 'required' : '' }}>
                                                             <div class="file-placeholder {{ $hasExistingFile ? 'hidden' : '' }}" id="filePlaceholder_{{ $question->id }}">
                                                                 <div class="text-4xl mb-2">📎</div>
                                                                 <p class="text-gray-600 font-medium">Klik untuk upload file</p>
@@ -623,7 +671,17 @@
                                                             </div>
                                                             <div class="file-preview {{ $hasExistingFile ? '' : 'hidden' }}" id="filePreview_{{ $question->id }}">
                                                                 <div class="preview-content mb-3" id="filePreviewContent_{{ $question->id }}">
-                                                                    @if($hasExistingFile)
+                                                                    @if($existingKKPath)
+                                                                        @php
+                                                                            $fileExt = pathinfo($existingKKPath, PATHINFO_EXTENSION);
+                                                                        @endphp
+                                                                        @if(in_array(strtolower($fileExt), ['jpg', 'jpeg', 'png', 'gif']))
+                                                                            <img src="{{ asset('storage/' . $existingKKPath) }}" alt="Kartu Keluarga" class="max-h-64 mx-auto rounded-lg">
+                                                                        @else
+                                                                            <div class="text-6xl">📄</div>
+                                                                            <p class="text-sm text-gray-600 mt-2">Kartu Keluarga</p>
+                                                                        @endif
+                                                                    @elseif($hasExistingFile && $existingAnswer)
                                                                         @php
                                                                             $fileExt = pathinfo($existingAnswer->media_path, PATHINFO_EXTENSION);
                                                                         @endphp
@@ -639,7 +697,11 @@
                                                                     @endif
                                                                 </div>
                                                                 <p class="text-sm text-gray-600 mb-2" id="fileFileName_{{ $question->id }}">
-                                                                    {{ $hasExistingFile ? '📎 ' . ($existingAnswer->answer_text ?? 'Uploaded File') : '' }}
+                                                                    @if($existingKKPath)
+                                                                        📎 Kartu Keluarga (sudah diupload)
+                                                                    @else
+                                                                        {{ $hasExistingFile && $existingAnswer ? '📎 ' . ($existingAnswer->answer_text ?? 'Uploaded File') : '' }}
+                                                                    @endif
                                                                 </p>
                                                                 <button type="button" class="change-file-btn text-yellow-600 text-sm font-medium hover:text-yellow-700" data-question-id="{{ $question->id }}">
                                                                     🔄 Ganti File
@@ -659,14 +721,69 @@
                 @endforeach
             </div>
 
+            <!-- Section V: Gangguan Kesehatan Per Anggota Keluarga -->
+            <div id="dynamic-health-section" class="bg-white rounded-lg shadow-md overflow-hidden border-l-4 border-green-500 mt-6">
+                <div class="bg-gradient-to-r from-green-600 to-green-500 px-6 py-4 text-white cursor-pointer" onclick="toggleSectionV()">
+                    <h3 class="text-lg font-bold flex items-center justify-between">
+                        <span class="flex items-center gap-2">
+                            <span class="text-2xl">💚</span>
+                            V. GANGGUAN KESEHATAN PER ANGGOTA KELUARGA
+                        </span>
+                        <svg id="section-v-arrow" class="w-6 h-6 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </h3>
+                    <p class="text-green-100 text-sm mt-1">Klik tombol "V" pada tabel anggota keluarga untuk mengisi</p>
+                </div>
+                <div id="section-v-content" class="p-6">
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800 mb-4">
+                        ℹ️ Pertanyaan ini berlaku untuk SEMUA UMUR. Isi untuk setiap anggota keluarga yang sudah didaftarkan.
+                    </div>
+                    <div id="dynamic-health-container" class="space-y-4"></div>
+                </div>
+            </div>
+
+            <!-- Section VI: Kuesioner Tambahan (Pertanyaan Per KELUARGA) -->
+            <div id="section-vi-container" class="mt-6">
+                <div class="bg-white rounded-lg shadow-md overflow-hidden border-l-4 border-purple-500">
+                    <div class="bg-gradient-to-r from-purple-600 to-purple-500 px-6 py-4 text-white cursor-pointer" onclick="toggleSectionVI()">
+                        <h3 class="text-lg font-bold flex items-center justify-between">
+                            <span class="flex items-center gap-2">
+                                <span class="text-2xl">📋</span>
+                                VI. KUESIONER TAMBAHAN
+                            </span>
+                            <svg id="section-vi-arrow" class="w-6 h-6 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </h3>
+                        <p class="text-purple-100 text-sm mt-1">Pertanyaan ini untuk seluruh keluarga</p>
+                    </div>
+                    <div id="section-vi-content" class="p-6">
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800 mb-4">
+                            ℹ️ <strong>Pertanyaan ini untuk seluruh keluarga.</strong> Beberapa pertanyaan akan muncul/hilang otomatis berdasarkan jawaban sebelumnya. Semua jawaban tersimpan secara otomatis.
+                        </div>
+                        <div id="section-vi-loading" class="flex items-center justify-center py-8">
+                            <svg class="animate-spin h-8 w-8 text-purple-500 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span class="text-gray-600">Memuat pertanyaan tambahan...</span>
+                        </div>
+                        <div id="section-vi-questions" class="space-y-6 hidden"></div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Catatan Pencacah -->
             <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500 mt-6">
                 <h3 class="text-lg font-bold text-gray-800 mb-4">📝 Catatan Pencacah (Opsional)</h3>
                 <textarea name="officer_notes"
+                          id="officer_notes"
                           rows="4"
-                          class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          placeholder="Tuliskan catatan tambahan terkait kuesioner ini (misal: kondisi khusus, kendala saat pengisian, dll)"></textarea>
-                <p class="text-xs text-gray-500 mt-2">💡 Catatan ini akan tersimpan untuk referensi internal</p>
+                          class="answer-input w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          data-question-id="officer_notes"
+                          placeholder="Tuliskan catatan tambahan terkait kuesioner ini (misal: kondisi khusus, kendala saat pengisian, dll)">{{ $response->notes ?? $response->officer_notes ?? '' }}</textarea>
+                <p class="text-xs text-gray-500 mt-2">💡 Catatan ini akan tersimpan otomatis untuk referensi internal</p>
             </div>
 
             <!-- Submit Button -->
@@ -684,13 +801,125 @@
     </div>
 </div>
 
+<!-- Modal Tambah/Edit Anggota Keluarga -->
+<div id="familyMemberModal" class="fixed inset-0 z-50 hidden">
+    <div class="fixed inset-0 bg-black bg-opacity-50" onclick="closeFamilyMemberModal()"></div>
+    <div class="fixed inset-0 flex items-center justify-center p-4 pointer-events-none">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto pointer-events-auto">
+            <div class="sticky top-0 bg-white border-b px-4 py-3 flex items-center justify-between">
+                <h3 id="familyModalTitle" class="text-lg font-bold text-gray-800">Tambah Anggota Keluarga</h3>
+                <button type="button" onclick="closeFamilyMemberModal()" class="text-gray-500 hover:text-gray-700">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="p-4 space-y-3">
+                <input type="hidden" id="editMemberId" value="">
+
+                <input type="text" id="modal_nik" placeholder="NIK (16 digit - opsional)" class="uppercase w-full px-3 py-2 text-sm border rounded-lg" maxlength="16">
+
+                <select id="modal_citizen_type_id" class="w-full px-3 py-2 text-sm border rounded-lg">
+                    <option value="">Jenis Warga</option>
+                </select>
+
+                <input type="text" id="modal_nama_lengkap" placeholder="Nama Lengkap *" class="uppercase w-full px-3 py-2 text-sm border rounded-lg" required>
+
+                <select id="modal_hubungan" class="w-full px-3 py-2 text-sm border rounded-lg" required>
+                    <option value="">Hubungan Keluarga *</option>
+                </select>
+
+                <input type="text" id="modal_tempat_lahir" placeholder="Tempat Lahir" class="uppercase w-full px-3 py-2 text-sm border rounded-lg">
+
+                <div class="flex gap-2">
+                    <input type="text" id="modal_tanggal_lahir" placeholder="dd/mm/yyyy *" class="flex-1 px-3 py-2 text-sm border rounded-lg" required>
+                    <input type="number" id="modal_umur" placeholder="Umur" class="w-20 px-3 py-2 text-sm border rounded-lg bg-gray-50" readonly>
+                </div>
+
+                <select id="modal_jenis_kelamin" class="w-full px-3 py-2 text-sm border rounded-lg" required>
+                    <option value="">Jenis Kelamin *</option>
+                    <option value="1">1. Laki-laki</option>
+                    <option value="2">2. Perempuan</option>
+                </select>
+
+                <select id="modal_status_perkawinan" class="w-full px-3 py-2 text-sm border rounded-lg">
+                    <option value="">Status Perkawinan</option>
+                </select>
+
+                <select id="modal_agama" class="w-full px-3 py-2 text-sm border rounded-lg">
+                    <option value="">Agama</option>
+                </select>
+
+                <select id="modal_pendidikan" class="w-full px-3 py-2 text-sm border rounded-lg">
+                    <option value="">Pendidikan</option>
+                </select>
+
+                <select id="modal_pekerjaan" class="w-full px-3 py-2 text-sm border rounded-lg">
+                    <option value="">Pekerjaan</option>
+                </select>
+
+                <select id="modal_golongan_darah" class="w-full px-3 py-2 text-sm border rounded-lg">
+                    <option value="">Golongan Darah</option>
+                    <option value="A">A</option>
+                    <option value="B">B</option>
+                    <option value="AB">AB</option>
+                    <option value="O">O</option>
+                    <option value="-">Tidak Diketahui</option>
+                </select>
+
+                <input type="text" id="modal_phone" placeholder="No. Telepon" class="w-full px-3 py-2 text-sm border rounded-lg">
+
+                <div class="space-y-1">
+                    <label class="block text-xs font-medium text-gray-600">Upload KTP/KIA (opsional)</label>
+                    <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-yellow-400 transition cursor-pointer" onclick="document.getElementById('modal_ktp_file').click()">
+                        <input type="file" id="modal_ktp_file" class="hidden" accept="image/*,.pdf">
+                        <div id="modal_ktp_placeholder">
+                            <div class="text-3xl mb-1">📷</div>
+                            <p class="text-gray-600 text-sm">Klik untuk upload</p>
+                            <p class="text-gray-400 text-xs">JPG, PNG, PDF (Max 2MB)</p>
+                        </div>
+                        <div id="modal_ktp_preview" class="hidden">
+                            <img id="modal_ktp_image" class="max-h-24 mx-auto rounded">
+                            <p id="modal_ktp_filename" class="text-xs text-gray-600 mt-1"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="sticky bottom-0 bg-white border-t px-4 py-3 flex gap-2">
+                <button type="button" onclick="closeFamilyMemberModal()" class="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition font-medium">
+                    Batal
+                </button>
+                <button type="button" onclick="saveFamilyMemberFromModal()" class="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium">
+                    Simpan
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const totalQuestions = {{ $actualQuestions->count() }};
     const responseId = {{ $response->id }};
-    let answeredQuestions = new Set();
     let autoSaveTimeout = null;
+
+    // Saved family members data from residents table (not from responses.family_members JSON)
+    let savedFamilyMembers = {};
+
+    // Convert savedResidents array to object with sequential keys for compatibility
+    @if(!empty($savedResidents))
+        @foreach($savedResidents as $index => $resident)
+            savedFamilyMembers[{{ $index + 1 }}] = @json($resident);
+        @endforeach
+    @endif
+
+    // Load saved health data from resident_health_responses table (not from response.health_data JSON)
+    const savedHealthData = @json($savedHealthData ?? []);
+    const savedResidents = @json($savedResidents ?? []);
+
+    console.log('Saved family members:', savedFamilyMembers);
+    console.log('Saved health data:', savedHealthData);
+    console.log('Saved residents (with KTP):', savedResidents);
 
     // ==================== PROFESSIONAL MODAL SYSTEM ====================
     function showModal(options) {
@@ -830,14 +1059,11 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 
     const submitBtn = document.getElementById('submitBtn');
-    const progressBar = document.getElementById('progressBar');
-    const progressPercent = document.getElementById('progressPercent');
     const questionCounter = document.getElementById('questionCounter');
-    const answeredCount = document.getElementById('answeredCount');
 
-    // Set initial counter
-    questionCounter.textContent = '1-' + totalQuestions;
-    document.getElementById('stickyQuestionCounter').textContent = '1-' + totalQuestions;
+    // Set initial counter (total questions)
+    questionCounter.textContent = '1-' + {{ $actualQuestions->count() }};
+    document.getElementById('stickyQuestionCounter').textContent = '1-' + {{ $actualQuestions->count() }};
 
     // Validate Nomor KK (16 digit)
     document.addEventListener('input', function(e) {
@@ -867,37 +1093,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Cek jawaban yang sudah ada
     function checkExistingAnswers() {
-        document.querySelectorAll('.answer-input').forEach(input => {
-            const questionId = input.getAttribute('data-question-id');
-
-            if (input.type === 'radio' || input.type === 'checkbox') {
-                if (input.checked) {
-                    answeredQuestions.add(questionId);
-                }
-            } else if (input.value && input.value.trim() !== '') {
-                answeredQuestions.add(questionId);
-            }
-        });
-        updateProgress();
-    }
-
-    function updateProgress() {
-        const progress = (answeredQuestions.size / totalQuestions) * 100;
-        progressBar.style.width = progress + '%';
-        progressPercent.textContent = Math.round(progress) + '%';
-        answeredCount.textContent = answeredQuestions.size;
-
-        // Update sticky header
-        document.getElementById('stickyProgressBar').style.width = progress + '%';
-        document.getElementById('stickyProgressPercent').textContent = Math.round(progress) + '%';
-        document.getElementById('stickyAnsweredCount').textContent = answeredQuestions.size;
-
-        // Update submit button if 100%
-        if (progress >= 100) {
-            submitBtn.classList.add('animate-pulse');
-        } else {
-            submitBtn.classList.remove('animate-pulse');
-        }
+        // No longer tracking progress
     }
 
     // Auto-save function
@@ -911,6 +1107,8 @@ document.addEventListener('DOMContentLoaded', function() {
             formData.append('answer', value);
             formData.append('response_id', responseId);
 
+            console.log('🔄 Autosaving...', {questionId, value, responseId});
+
             fetch('{{ route("questionnaire.autosave", $questionnaire->id) }}', {
                 method: 'POST',
                 body: formData,
@@ -921,11 +1119,13 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    console.log('Auto-saved:', questionId);
+                    console.log('✅ Auto-saved:', questionId, value);
+                } else {
+                    console.error('❌ Autosave failed:', data.message);
                 }
             })
             .catch(error => {
-                console.error('Auto-save error:', error);
+                console.error('❌ Autosave error:', error);
             });
         };
 
@@ -947,41 +1147,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (input.type === 'radio' || input.type === 'checkbox') {
             input.addEventListener('change', function() {
-                if (this.checked) {
-                    answeredQuestions.add(questionId);
-
-                    // For radio, get the value
-                    if (this.type === 'radio') {
-                        autoSave(questionId, this.value, true); // Save immediately
-                    } else {
-                        // For checkbox, collect all checked values
-                        const checkedValues = Array.from(document.querySelectorAll(`input[data-question-id="${questionId}"]:checked`))
-                            .map(cb => cb.value);
-                        autoSave(questionId, JSON.stringify(checkedValues), true); // Save immediately
-                    }
+                // For radio, get the value
+                if (this.type === 'radio') {
+                    autoSave(questionId, this.value, true); // Save immediately
                 } else if (this.type === 'checkbox') {
-                    // Check if any checkbox for this question is still checked
-                    const anyChecked = document.querySelector(`input[data-question-id="${questionId}"]:checked`);
-                    if (!anyChecked) {
-                        answeredQuestions.delete(questionId);
-                    }
-
+                    // For checkbox, collect all checked values
                     const checkedValues = Array.from(document.querySelectorAll(`input[data-question-id="${questionId}"]:checked`))
                         .map(cb => cb.value);
                     autoSave(questionId, JSON.stringify(checkedValues), true); // Save immediately
                 }
-                updateProgress();
             });
         } else {
             // For text inputs and textareas
             input.addEventListener('input', function() {
-                if (this.value && this.value.trim() !== '') {
-                    answeredQuestions.add(questionId);
-                    autoSave(questionId, this.value, false); // Delay for text inputs
-                } else {
-                    answeredQuestions.delete(questionId);
-                }
-                updateProgress();
+                autoSave(questionId, this.value, false); // Delay for text inputs
             });
         }
     });
@@ -992,13 +1171,8 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!questionId) return;
 
         select.addEventListener('change', function() {
-            if (this.value && this.value.trim() !== '') {
-                answeredQuestions.add(questionId);
-                autoSave(questionId, this.value, true); // Save immediately on change
-            } else {
-                answeredQuestions.delete(questionId);
-            }
-            updateProgress();
+            autoSave(questionId, this.value, true); // Save immediately on change
+
         });
     });
 
@@ -1093,6 +1267,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let occupationsData = [];
     let educationsData = [];
     let familyRelationsData = [];
+    let citizenTypesData = [];
     let maritalStatusesData = [];
     let religionsData = [];
 
@@ -1139,6 +1314,16 @@ document.addEventListener('DOMContentLoaded', function() {
             religionsData = await response.json();
         } catch (error) {
             console.error('Error loading religions:', error);
+        }
+    }
+
+    async function loadCitizenTypes() {
+        try {
+            const response = await fetch('/api/citizen-types');
+            const result = await response.json();
+            citizenTypesData = result.data || result;
+        } catch (error) {
+            console.error('Error loading citizen types:', error);
         }
     }
 
@@ -1195,226 +1380,508 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    window.addFamilyMember = function() {
-        familyMemberCount++;
-        const container = document.getElementById('family-members-list');
-        const memberDiv = document.createElement('div');
-        memberDiv.className = 'border border-gray-300 rounded-lg p-4 space-y-3 bg-white';
-        memberDiv.id = `member-${familyMemberCount}`;
+    // Load saved family members from database - now renders to table
+    async function loadSavedFamilyMembers() {
+        try {
+            console.log('🔵 loadSavedFamilyMembers called');
+            console.log('🔵 savedFamilyMembers:', savedFamilyMembers);
+            console.log('🔵 typeof savedFamilyMembers:', typeof savedFamilyMembers);
+            console.log('🔵 Object.keys(savedFamilyMembers):', Object.keys(savedFamilyMembers));
 
-        // Build options from master data with code.name format
-        let familyRelationOptions = '<option value="">Hubungan Keluarga</option>';
-        familyRelationsData.forEach(item => {
-            familyRelationOptions += `<option value="${item.id}">${formatOptionText(item)}</option>`;
-        });
-
-        let religionOptions = '<option value="">Agama</option>';
-        religionsData.forEach(item => {
-            religionOptions += `<option value="${item.id}">${formatOptionText(item)}</option>`;
-        });
-
-        let maritalStatusOptions = '<option value="">Status Perkawinan</option>';
-        maritalStatusesData.forEach(item => {
-            maritalStatusOptions += `<option value="${item.id}">${formatOptionText(item)}</option>`;
-        });
-
-        let educationOptions = '<option value="">Pendidikan</option>';
-        educationsData.forEach(item => {
-            educationOptions += `<option value="${item.id}">${formatOptionText(item)}</option>`;
-        });
-
-        let occupationOptions = '<option value="">Pekerjaan</option>';
-        occupationsData.forEach(item => {
-            occupationOptions += `<option value="${item.id}">${formatOptionText(item)}</option>`;
-        });
-
-        memberDiv.innerHTML = `
-            <div class="flex justify-between items-center mb-2">
-                <h4 class="font-semibold text-gray-800 text-sm">Anggota ${familyMemberCount}</h4>
-            </div>
-
-            <input type="text" name="family_members[${familyMemberCount}][nik]" placeholder="NIK (16 digit - opsional)" class="uppercase w-full px-3 py-2 text-sm border rounded-lg" maxlength="16" pattern="[0-9]{16}">
-
-            <input type="text" name="family_members[${familyMemberCount}][nama_lengkap]" placeholder="Nama Lengkap" class="uppercase w-full px-3 py-2 text-sm border rounded-lg" required>
-
-            <select name="family_members[${familyMemberCount}][hubungan]" id="hubungan-${familyMemberCount}" class="w-full px-3 py-2 text-sm border rounded-lg" required>
-                ${familyRelationOptions}
-            </select>
-
-            <input type="text" name="family_members[${familyMemberCount}][tempat_lahir]" placeholder="Tempat Lahir (opsional)" class="uppercase w-full px-3 py-2 text-sm border rounded-lg">
-
-            <div class="flex gap-2">
-                <input type="text" name="family_members[${familyMemberCount}][tanggal_lahir]" id="tanggal_lahir_${familyMemberCount}" placeholder="dd/mm/yyyy" class="datepicker-dob flex-1 px-3 py-2 text-sm border rounded-lg" required data-member-id="${familyMemberCount}">
-                <input type="number" id="age-${familyMemberCount}" placeholder="Umur" class="w-20 px-3 py-2 text-sm border rounded-lg bg-gray-50" readonly>
-            </div>
-
-            <select name="family_members[${familyMemberCount}][jenis_kelamin]" class="w-full px-3 py-2 text-sm border rounded-lg" required>
-                <option value="">Jenis Kelamin</option>
-                <option value="1">1. Pria</option>
-                <option value="2">2. Wanita</option>
-            </select>
-
-            <select name="family_members[${familyMemberCount}][status_perkawinan]" id="status_perkawinan-${familyMemberCount}" class="w-full px-3 py-2 text-sm border rounded-lg">
-                ${maritalStatusOptions}
-            </select>
-
-            <select name="family_members[${familyMemberCount}][agama]" id="agama-${familyMemberCount}" class="w-full px-3 py-2 text-sm border rounded-lg">
-                ${religionOptions}
-            </select>
-
-            <select name="family_members[${familyMemberCount}][pendidikan]" id="pendidikan-${familyMemberCount}" class="w-full px-3 py-2 text-sm border rounded-lg">
-                ${educationOptions}
-            </select>
-
-            <select name="family_members[${familyMemberCount}][pekerjaan]" id="pekerjaan-${familyMemberCount}" class="w-full px-3 py-2 text-sm border rounded-lg">
-                ${occupationOptions}
-            </select>
-
-            <select name="family_members[${familyMemberCount}][golongan_darah]" class="w-full px-3 py-2 text-sm border rounded-lg">
-                <option value="">Golongan Darah</option>
-                <option value="A">A</option>
-                <option value="B">B</option>
-                <option value="AB">AB</option>
-                <option value="O">O</option>
-                <option value="-">Tidak Diketahui</option>
-            </select>
-
-            <input type="text" name="family_members[${familyMemberCount}][phone]" placeholder="No. Telepon" class="w-full px-3 py-2 text-sm border rounded-lg">
-
-            <div class="space-y-1">
-                <label class="block text-xs font-medium text-gray-600">Upload KTP/KIA (opsional)</label>
-                <div class="family-ktp-upload-container" data-member-id="${familyMemberCount}">
-                    <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-yellow-400 transition cursor-pointer family-ktp-upload-area" id="ktpUploadArea_${familyMemberCount}">
-                        <input type="file"
-                               name="family_members[${familyMemberCount}][ktp_kia]"
-                               accept="image/*,.pdf"
-                               class="hidden family-ktp-file-input"
-                               id="family_ktp_${familyMemberCount}"
-                               data-member-id="${familyMemberCount}">
-                        <div class="family-ktp-placeholder" id="ktpPlaceholder_${familyMemberCount}">
-                            <div class="text-3xl mb-1">📸</div>
-                            <p class="text-gray-600 text-xs font-medium">Klik untuk upload</p>
-                            <p class="text-gray-400 text-xs mt-1">atau drag & drop</p>
-                            <p class="text-gray-400 text-xs mt-1">JPG, PNG, PDF (Max 2MB)</p>
-                        </div>
-                        <div class="family-ktp-preview hidden" id="ktpPreview_${familyMemberCount}">
-                            <div id="ktpPreviewContent_${familyMemberCount}" class="mb-2">
-                                <!-- Preview will be inserted here -->
-                            </div>
-                            <p class="text-xs text-gray-600 mb-2" id="ktpFileName_${familyMemberCount}"></p>
-                            <button type="button" class="change-family-ktp-btn text-yellow-600 text-xs font-medium hover:text-yellow-700" data-member-id="${familyMemberCount}">
-                                ⟳ Ganti File
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="flex gap-2 mt-4 pt-3 border-t">
-                <button type="button" onclick="saveFamilyMember(${familyMemberCount})" class="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium text-sm">
-                    ✓ Simpan Anggota
-                </button>
-                <button type="button" onclick="removeFamilyMember(${familyMemberCount})" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-medium text-sm">
-                    × Hapus
-                </button>
-            </div>
-        `;
-        container.appendChild(memberDiv);
-
-        // Initialize Choices.js for all searchable dropdowns
-        const selectsToInitialize = [
-            { id: `hubungan-${familyMemberCount}`, placeholder: 'Ketik untuk mencari hubungan...' },
-            { id: `agama-${familyMemberCount}`, placeholder: 'Ketik untuk mencari agama...' },
-            { id: `status_perkawinan-${familyMemberCount}`, placeholder: 'Ketik untuk mencari status...' },
-            { id: `pendidikan-${familyMemberCount}`, placeholder: 'Ketik untuk mencari pendidikan...' },
-            { id: `pekerjaan-${familyMemberCount}`, placeholder: 'Ketik untuk mencari pekerjaan...' }
-        ];
-
-        selectsToInitialize.forEach(selectConfig => {
-            const selectElement = document.getElementById(selectConfig.id);
-            if (selectElement) {
-                new Choices(selectElement, {
-                    searchEnabled: true,
-                    searchPlaceholderValue: selectConfig.placeholder,
-                    noResultsText: 'Tidak ada hasil',
-                    itemSelectText: 'Tekan untuk memilih',
-                    removeItemButton: false,
-                    shouldSort: false
-                });
+            if (!savedFamilyMembers || Object.keys(savedFamilyMembers).length === 0) {
+                console.log('⚠️ No saved family members to load');
+                return;
             }
+
+            // Clear table first
+            const tbody = document.getElementById('family-members-tbody');
+            if (!tbody) {
+                console.error('❌ Table tbody not found!');
+                return;
+            }
+            tbody.innerHTML = '';
+            console.log('✅ Table cleared');
+
+            // savedFamilyMembers is an object with keys like "1", "2", etc.
+            const memberKeys = Object.keys(savedFamilyMembers).sort((a, b) => parseInt(a) - parseInt(b));
+            console.log('🔵 Member keys:', memberKeys);
+
+            // Update familyMemberCount to the highest key so new members get unique IDs
+            if (memberKeys.length > 0) {
+                familyMemberCount = Math.max(...memberKeys.map(k => parseInt(k)));
+                console.log('🔵 familyMemberCount updated to:', familyMemberCount);
+            }
+
+            memberKeys.forEach((key, index) => {
+                console.log(`🔵 Processing member ${key}:`, savedFamilyMembers[key]);
+                const memberData = savedFamilyMembers[key];
+                addMemberToTable(key, memberData, index + 1);
+                console.log(`✅ Added member ${key} to table`);
+            });
+
+            console.log('✅ Finished loading family members to table. familyMemberCount =', familyMemberCount);
+
+            // Auto-generate health questions for members who have saved health data
+            if (savedHealthData && Object.keys(savedHealthData).length > 0) {
+                console.log('🔵 Found saved health data, will auto-generate health questions...');
+
+                try {
+                    for (const memberId of Object.keys(savedHealthData)) {
+                        console.log(`🔵 Generating health questions for member ${memberId}...`);
+
+                        // Check if member exists in savedFamilyMembers
+                        if (!savedFamilyMembers[memberId]) {
+                            console.warn(`⚠️ Member ${memberId} not found in savedFamilyMembers, skipping`);
+                            continue;
+                        }
+
+                        try {
+                            await generateHealthQuestionsForMember(parseInt(memberId));
+
+                            // Small delay to ensure DOM is ready
+                            await new Promise(resolve => setTimeout(resolve, 100));
+                        } catch (genError) {
+                            console.error(`❌ Error generating health questions for member ${memberId}:`, genError);
+                            // Continue with next member
+                        }
+                    }
+
+                    console.log('🔵 Now loading saved health data into forms...');
+                    await loadSavedHealthData();
+                } catch (healthError) {
+                    console.error('❌ Error in health data auto-load:', healthError);
+                    // Don't block page load if health data fails
+                }
+            }
+        } catch (error) {
+            console.error('❌ Error in loadSavedFamilyMembers:', error);
+            console.error('❌ Stack:', error.stack);
+        }
+    }
+
+    // Add member row to table
+    function addMemberToTable(memberId, memberData, rowNumber) {
+        try {
+            console.log(`🟢 addMemberToTable called: memberId=${memberId}, rowNumber=${rowNumber}`);
+            console.log(`🟢 memberData:`, memberData);
+
+            const tbody = document.getElementById('family-members-tbody');
+            if (!tbody) {
+                console.error('❌ Table tbody not found in addMemberToTable!');
+                return;
+            }
+
+            // Remove "no members" row if exists
+            const noMembersRow = document.getElementById('no-members-row');
+            if (noMembersRow) {
+                noMembersRow.remove();
+                console.log('✅ Removed no-members-row');
+            }
+
+            // Get display values from master data
+            console.log(`🟢 familyRelationsData:`, familyRelationsData);
+            const hubunganText = getOptionTextById(familyRelationsData, memberData.hubungan);
+            // jenis_kelamin is now stored as '1' or '2' in database
+            const jenisKelaminText =
+                memberData.jenis_kelamin === '1' ? 'L' :
+                memberData.jenis_kelamin === '2' ? 'P' : '-';
+
+            // Calculate age
+            let umur = memberData.umur || '-';
+            if (memberData.tanggal_lahir && !memberData.umur) {
+                let dateStr = memberData.tanggal_lahir;
+                if (dateStr.includes('/')) {
+                    const [d, m, y] = dateStr.split('/');
+                    dateStr = `${y}-${m}-${d}`;
+                }
+                const age = calculateAge(dateStr);
+                umur = age >= 0 ? age : '-';
+            }
+
+            console.log(`🟢 Display values: hubungan=${hubunganText}, jenis_kelamin=${jenisKelaminText}, umur=${umur}`);
+
+            const row = document.createElement('tr');
+            row.id = `member-row-${memberId}`;
+            row.innerHTML = `
+                <td class="border px-2 py-2">${rowNumber}</td>
+                <td class="border px-2 py-2 text-xs">${memberData.nik || '-'}</td>
+                <td class="border px-2 py-2 font-medium">${memberData.nama_lengkap || '-'}</td>
+                <td class="border px-2 py-2">${hubunganText}</td>
+                <td class="border px-2 py-2 text-center">${jenisKelaminText}</td>
+                <td class="border px-2 py-2 text-center">${umur}</td>
+                <td class="border px-2 py-2 text-center">
+                    <div class="flex gap-1 justify-center flex-wrap">
+                        <button type="button" onclick="selectMemberForHealth(${memberId})" class="px-2 py-1 bg-green-500 text-white rounded text-xs hover:bg-green-600" title="Pilih untuk pertanyaan kesehatan V">V</button>
+                        <button type="button" onclick="editFamilyMemberModal(${memberId})" class="px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600">Edit</button>
+                        <button type="button" onclick="deleteFamilyMember(${memberId})" class="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600">Hapus</button>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(row);
+            console.log(`✅ Row appended to table for member ${memberId}`);
+
+            // Store data in hidden form
+            storeMemberData(memberId, memberData);
+            console.log(`✅ Member data stored for member ${memberId}`);
+        } catch (error) {
+            console.error(`❌ Error in addMemberToTable for member ${memberId}:`, error);
+            console.error('❌ Stack:', error.stack);
+        }
+    }
+
+    // Get option text by ID from master data
+    function getOptionTextById(dataArray, id) {
+        if (!id || !dataArray) return '-';
+        const item = dataArray.find(d => d.id == id);
+        return item ? (item.code ? `${item.code}. ${item.name}` : item.name) : '-';
+    }
+
+    // Store member data in hidden form for submission
+    function storeMemberData(memberId, memberData) {
+        const container = document.getElementById('family-members-list');
+
+        // Remove existing hidden inputs for this member
+        container.querySelectorAll(`input[name^="family_members[${memberId}]"]`).forEach(el => el.remove());
+
+        // Create hidden inputs
+        const fields = ['nik', 'citizen_type_id', 'nama_lengkap', 'hubungan', 'tempat_lahir', 'tanggal_lahir', 'jenis_kelamin', 'status_perkawinan', 'agama', 'pendidikan', 'pekerjaan', 'golongan_darah', 'phone'];
+        fields.forEach(field => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = `family_members[${memberId}][${field}]`;
+            input.value = memberData[field] || '';
+            container.appendChild(input);
         });
+    }
 
-        // Initialize file upload for family member KTP
-        initializeFamilyKtpUpload(familyMemberCount);
+    // Open modal for adding new member
+    window.openFamilyMemberModal = function(editId = null) {
+        const modal = document.getElementById('familyMemberModal');
+        const title = document.getElementById('familyModalTitle');
 
-        // Initialize Flatpickr for date of birth
-        initializeDatePicker(familyMemberCount);
+        // Populate select options
+        populateModalSelects();
 
-        // Don't generate health questions yet - wait for user to save
-        // generateHealthQuestionsForMember(familyMemberCount);
+        // Clear form
+        clearModalForm();
+
+        if (editId) {
+            title.textContent = 'Edit Anggota Keluarga';
+            document.getElementById('editMemberId').value = editId;
+            // Fill form with existing data
+            const memberData = savedFamilyMembers[editId];
+            if (memberData) {
+                fillModalForm(memberData);
+            }
+        } else {
+            title.textContent = 'Tambah Anggota Keluarga';
+            document.getElementById('editMemberId').value = '';
+        }
+
+        modal.classList.remove('hidden');
+
+        // Initialize date picker for modal
+        initializeModalDatePicker();
     };
 
-    // Save family member and generate health questions
-    window.saveFamilyMember = function(memberId) {
-        const memberDiv = document.getElementById(`member-${memberId}`);
-        if (!memberDiv) return;
+    // Close modal
+    window.closeFamilyMemberModal = function() {
+        document.getElementById('familyMemberModal').classList.add('hidden');
+    };
 
-        // Validate required fields
-        const requiredFields = memberDiv.querySelectorAll('[required]');
-        let allValid = true;
+    // Populate modal select options
+    function populateModalSelects() {
+        // Citizen Type
+        const citizenSelect = document.getElementById('modal_citizen_type_id');
+        citizenSelect.innerHTML = '<option value="">Jenis Warga</option>';
+        if (Array.isArray(citizenTypesData)) {
+            citizenTypesData.forEach(item => {
+                citizenSelect.innerHTML += `<option value="${item.id}">${item.name}</option>`;
+            });
+        }
 
-        requiredFields.forEach(field => {
-            if (!field.value || field.value.trim() === '') {
-                allValid = false;
-                field.classList.add('border-red-500');
+        // Hubungan Keluarga
+        const hubunganSelect = document.getElementById('modal_hubungan');
+        hubunganSelect.innerHTML = '<option value="">Hubungan Keluarga *</option>';
+        familyRelationsData.forEach(item => {
+            hubunganSelect.innerHTML += `<option value="${item.id}">${formatOptionText(item)}</option>`;
+        });
+
+        // Status Perkawinan
+        const statusSelect = document.getElementById('modal_status_perkawinan');
+        statusSelect.innerHTML = '<option value="">Status Perkawinan</option>';
+        maritalStatusesData.forEach(item => {
+            statusSelect.innerHTML += `<option value="${item.id}">${formatOptionText(item)}</option>`;
+        });
+
+        // Agama
+        const agamaSelect = document.getElementById('modal_agama');
+        agamaSelect.innerHTML = '<option value="">Agama</option>';
+        religionsData.forEach(item => {
+            agamaSelect.innerHTML += `<option value="${item.id}">${formatOptionText(item)}</option>`;
+        });
+
+        // Pendidikan
+        const pendidikanSelect = document.getElementById('modal_pendidikan');
+        pendidikanSelect.innerHTML = '<option value="">Pendidikan</option>';
+        educationsData.forEach(item => {
+            pendidikanSelect.innerHTML += `<option value="${item.id}">${formatOptionText(item)}</option>`;
+        });
+
+        // Pekerjaan
+        const pekerjaanSelect = document.getElementById('modal_pekerjaan');
+        pekerjaanSelect.innerHTML = '<option value="">Pekerjaan</option>';
+        occupationsData.forEach(item => {
+            pekerjaanSelect.innerHTML += `<option value="${item.id}">${formatOptionText(item)}</option>`;
+        });
+    }
+
+    // Clear modal form
+    function clearModalForm() {
+        const fields = ['nik', 'citizen_type_id', 'nama_lengkap', 'hubungan', 'tempat_lahir', 'tanggal_lahir', 'jenis_kelamin', 'status_perkawinan', 'agama', 'pendidikan', 'pekerjaan', 'golongan_darah', 'phone'];
+        fields.forEach(field => {
+            const el = document.getElementById(`modal_${field}`);
+            if (el) el.value = '';
+        });
+        document.getElementById('modal_umur').value = '';
+        document.getElementById('modal_ktp_file').value = '';
+        document.getElementById('modal_ktp_placeholder').classList.remove('hidden');
+        document.getElementById('modal_ktp_preview').classList.add('hidden');
+    }
+
+    // Fill modal form with data
+    function fillModalForm(memberData) {
+        console.log('🔍 fillModalForm called with data:', memberData);
+
+        const fields = ['nik', 'citizen_type_id', 'nama_lengkap', 'hubungan', 'tempat_lahir', 'tanggal_lahir', 'jenis_kelamin', 'status_perkawinan', 'agama', 'pendidikan', 'pekerjaan', 'golongan_darah', 'phone'];
+        fields.forEach(field => {
+            const el = document.getElementById(`modal_${field}`);
+            if (el && memberData[field]) {
+                el.value = memberData[field];
+                console.log(`✅ Set ${field} =`, memberData[field]);
+            } else if (el) {
+                console.log(`⚠️ ${field} is empty or null`);
             } else {
-                field.classList.remove('border-red-500');
+                console.log(`❌ Element modal_${field} not found`);
             }
         });
 
-        if (!allValid) {
-            showError('Mohon lengkapi semua field yang bertanda bintang (*) terlebih dahulu', 'Data Belum Lengkap');
+        // Calculate and show age
+        if (memberData.tanggal_lahir) {
+            let dateStr = memberData.tanggal_lahir;
+            if (dateStr.includes('/')) {
+                const [d, m, y] = dateStr.split('/');
+                dateStr = `${y}-${m}-${d}`;
+            }
+            const age = calculateAge(dateStr);
+            document.getElementById('modal_umur').value = age >= 0 ? age : '';
+        }
+
+        // Show KTP preview if exists
+        const ktpPath = memberData.ktp_image_path || memberData.ktp_kia_path;
+        if (ktpPath) {
+            const ktpImage = document.getElementById('modal_ktp_image');
+            const ktpFilename = document.getElementById('modal_ktp_filename');
+            const ktpPlaceholder = document.getElementById('modal_ktp_placeholder');
+            const ktpPreview = document.getElementById('modal_ktp_preview');
+
+            // Set image source (ensure proper path)
+            const imagePath = ktpPath.startsWith('/storage') ? ktpPath : `/storage/${ktpPath}`;
+            ktpImage.src = imagePath;
+
+            // Extract filename from path
+            const filename = ktpPath.split('/').pop();
+            ktpFilename.textContent = filename;
+
+            // Show preview, hide placeholder
+            ktpPlaceholder.classList.add('hidden');
+            ktpPreview.classList.remove('hidden');
+        }
+    }
+
+    // Initialize date picker for modal
+    function initializeModalDatePicker() {
+        const dateInput = document.getElementById('modal_tanggal_lahir');
+        if (dateInput && !dateInput._flatpickr) {
+            flatpickr(dateInput, {
+                dateFormat: "d/m/Y",
+                altInput: true,
+                altFormat: "d/m/Y",
+                locale: "id",
+                allowInput: true,
+                maxDate: "today",
+                onChange: function(selectedDates) {
+                    if (selectedDates.length > 0) {
+                        const date = selectedDates[0];
+                        const isoDate = date.toISOString().split('T')[0];
+                        const age = calculateAge(isoDate);
+                        document.getElementById('modal_umur').value = age >= 0 ? age : '';
+                    }
+                }
+            });
+        }
+    }
+
+    // Save family member from modal
+    window.saveFamilyMemberFromModal = function() {
+        // Validate required fields
+        const namaLengkap = document.getElementById('modal_nama_lengkap').value;
+        const hubungan = document.getElementById('modal_hubungan').value;
+        const tanggalLahir = document.getElementById('modal_tanggal_lahir').value;
+        const jenisKelamin = document.getElementById('modal_jenis_kelamin').value;
+
+        if (!namaLengkap || !hubungan || !tanggalLahir || !jenisKelamin) {
+            showError('Mohon lengkapi field yang wajib diisi (Nama, Hubungan, Tanggal Lahir, Jenis Kelamin)');
             return;
         }
 
-        // Get member data
-        const nikInput = memberDiv.querySelector('input[name*="[nik]"]');
-        const namaInput = memberDiv.querySelector('input[name*="[nama_lengkap]"]');
+        // Collect data from modal
+        const memberData = {
+            nik: document.getElementById('modal_nik').value,
+            citizen_type_id: document.getElementById('modal_citizen_type_id').value,
+            nama_lengkap: document.getElementById('modal_nama_lengkap').value.toUpperCase(),
+            hubungan: document.getElementById('modal_hubungan').value,
+            tempat_lahir: document.getElementById('modal_tempat_lahir').value.toUpperCase(),
+            tanggal_lahir: document.getElementById('modal_tanggal_lahir').value,
+            umur: document.getElementById('modal_umur').value,
+            jenis_kelamin: document.getElementById('modal_jenis_kelamin').value,
+            status_perkawinan: document.getElementById('modal_status_perkawinan').value,
+            agama: document.getElementById('modal_agama').value,
+            pendidikan: document.getElementById('modal_pendidikan').value,
+            pekerjaan: document.getElementById('modal_pekerjaan').value,
+            golongan_darah: document.getElementById('modal_golongan_darah').value,
+            phone: document.getElementById('modal_phone').value,
+        };
 
-        if (!nikInput || !namaInput) return;
+        const editId = document.getElementById('editMemberId').value;
+        let memberId;
 
-        const nik = nikInput.value;
-        const nama = namaInput.value;
+        if (editId) {
+            // Edit existing
+            memberId = editId;
+            savedFamilyMembers[memberId] = memberData;
+        } else {
+            // Add new
+            familyMemberCount++;
+            memberId = familyMemberCount;
+            savedFamilyMembers[memberId] = memberData;
+        }
 
-        // Collect all family members data from the form
-        const familyMembersData = [];
-        document.querySelectorAll('[id^="member-"]').forEach(member => {
-            const memberIndex = member.id.replace('member-', '');
-            const memberData = {
-                nik: member.querySelector(`input[name*="[${memberIndex}][nik]"]`)?.value || '',
-                nama_lengkap: member.querySelector(`input[name*="[${memberIndex}][nama_lengkap]"]`)?.value || '',
-                hubungan: member.querySelector(`select[name*="[${memberIndex}][hubungan]"]`)?.value || '',
-                tempat_lahir: member.querySelector(`input[name*="[${memberIndex}][tempat_lahir]"]`)?.value || '',
-                tanggal_lahir: member.querySelector(`input[name*="[${memberIndex}][tanggal_lahir]"]`)?.value || '',
-                umur: member.querySelector(`input[name*="[${memberIndex}][umur]"]`)?.value || '',
-                jenis_kelamin: member.querySelector(`select[name*="[${memberIndex}][jenis_kelamin]"]`)?.value || '',
-                status_perkawinan: member.querySelector(`select[name*="[${memberIndex}][status_perkawinan]"]`)?.value || '',
-                agama: member.querySelector(`select[name*="[${memberIndex}][agama]"]`)?.value || '',
-                pendidikan: member.querySelector(`select[name*="[${memberIndex}][pendidikan]"]`)?.value || '',
-                pekerjaan: member.querySelector(`select[name*="[${memberIndex}][pekerjaan]"]`)?.value || '',
-                golongan_darah: member.querySelector(`select[name*="[${memberIndex}][golongan_darah]"]`)?.value || '',
-                phone: member.querySelector(`input[name*="[${memberIndex}][phone]"]`)?.value || '',
-            };
-            familyMembersData.push(memberData);
+        // Get KTP file if uploaded
+        const ktpFileInput = document.getElementById('modal_ktp_file');
+        const ktpFile = ktpFileInput && ktpFileInput.files.length > 0 ? ktpFileInput.files[0] : null;
+
+        // Save to server with KTP file
+        saveFamilyMembersToServer(memberId, ktpFile, memberData.hubungan);
+
+        // Refresh table
+        refreshFamilyMembersTable();
+
+        // Close modal
+        closeFamilyMemberModal();
+
+        // Generate health questions for this member
+        generateHealthQuestionsForMember(parseInt(memberId));
+
+        // If this is kepala keluarga (hubungan = 1), reload page after saving
+        // to update Nama Responden and NIK fields
+        if (memberData.hubungan == '1') {
+            showSuccess('Kepala keluarga berhasil disimpan. Halaman akan di-refresh...');
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
+        } else {
+            showSuccess('Anggota keluarga berhasil disimpan');
+        }
+    };
+
+    // Select member for health questions - navigate to health section
+    window.selectMemberForHealth = function(memberId) {
+        console.log('selectMemberForHealth called for member:', memberId);
+        generateHealthQuestionsForMember(memberId);
+    };
+
+    // Toggle tensi input visibility based on ukur_tensi answer
+    window.toggleTensiInput = function(memberId, show) {
+        const tensiDiv = document.getElementById(`health_q10b_${memberId}`);
+        if (tensiDiv) {
+            if (show) {
+                tensiDiv.classList.remove('hidden');
+            } else {
+                tensiDiv.classList.add('hidden');
+            }
+        }
+    };
+
+    // Edit family member - open modal with data
+    window.editFamilyMemberModal = function(memberId) {
+        openFamilyMemberModal(memberId);
+    };
+
+    // Delete family member
+    window.deleteFamilyMember = function(memberId) {
+        showConfirm('Yakin ingin menghapus anggota keluarga ini?', () => {
+            delete savedFamilyMembers[memberId];
+
+            // Remove from table
+            const row = document.getElementById(`member-row-${memberId}`);
+            if (row) row.remove();
+
+            // Remove hidden inputs
+            const container = document.getElementById('family-members-list');
+            container.querySelectorAll(`input[name^="family_members[${memberId}]"]`).forEach(el => el.remove());
+
+            // Remove health section
+            const healthDiv = document.getElementById(`health-member-${memberId}`);
+            if (healthDiv) healthDiv.remove();
+
+            // Save to server
+            saveFamilyMembersToServer();
+
+            // Check if table is empty
+            const tbody = document.getElementById('family-members-tbody');
+            if (tbody.children.length === 0) {
+                tbody.innerHTML = '<tr id="no-members-row"><td colspan="7" class="border px-2 py-4 text-center text-gray-500">Belum ada anggota keluarga</td></tr>';
+            }
+
+            showSuccess('Anggota keluarga berhasil dihapus');
+        }, 'Hapus Anggota Keluarga?');
+    };
+
+    // Refresh table display
+    function refreshFamilyMembersTable() {
+        const tbody = document.getElementById('family-members-tbody');
+        tbody.innerHTML = '';
+
+        const memberKeys = Object.keys(savedFamilyMembers).sort((a, b) => parseInt(a) - parseInt(b));
+
+        if (memberKeys.length === 0) {
+            tbody.innerHTML = '<tr id="no-members-row"><td colspan="7" class="border px-2 py-4 text-center text-gray-500">Belum ada anggota keluarga</td></tr>';
+            return;
+        }
+
+        memberKeys.forEach((key, index) => {
+            addMemberToTable(key, savedFamilyMembers[key], index + 1);
         });
+    }
 
-        // Send to server via AJAX
+    // Save family members to server via AJAX
+    function saveFamilyMembersToServer(memberId = null, ktpFile = null, hubungan = null) {
+        console.log('🔄 Saving family members to server...');
+        console.log('   Member ID:', memberId);
+        console.log('   Hubungan:', hubungan);
+        console.log('   savedFamilyMembers:', savedFamilyMembers);
+
         const formData = new FormData();
         formData.append('_token', '{{ csrf_token() }}');
         formData.append('response_id', responseId);
-        formData.append('family_members', JSON.stringify(familyMembersData));
+        formData.append('family_members', JSON.stringify(savedFamilyMembers));
 
-        console.log('Saving family members to database...', familyMembersData);
+        // Append KTP file if provided
+        if (ktpFile && memberId) {
+            formData.append(`ktp_${memberId}`, ktpFile);
+            console.log(`   Appending KTP file for member ${memberId}:`, ktpFile.name);
+        }
 
         fetch('{{ route("questionnaire.save-family-members", $questionnaire->id) }}', {
             method: 'POST',
@@ -1425,327 +1892,575 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(response => response.json())
         .then(data => {
-            console.log('Family members saved:', data);
+            console.log('✅ Family members saved successfully!');
+            console.log('   Server response:', data);
 
-            // Mark as saved but keep fields enabled (so they submit with form)
-            memberDiv.classList.add('bg-green-50', 'border-green-300');
-            memberDiv.querySelectorAll('input, select').forEach(field => {
-                field.readOnly = (field.tagName === 'INPUT'); // Only input can be readonly
-                if (field.tagName === 'SELECT') {
-                    field.style.pointerEvents = 'none'; // Prevent select changes
-                }
-                field.classList.add('bg-gray-100', 'cursor-not-allowed');
-            });
-
-            // Update header
-            const header = memberDiv.querySelector('h4');
-            if (header) {
-                header.innerHTML = `Anggota ${memberId} - ${nama} <span class="text-green-600 text-xs ml-2">✓ Tersimpan</span>`;
+            // Update savedFamilyMembers with server response if it contains updated data
+            if (data.residents) {
+                console.log('   Updating savedFamilyMembers with server data:', data.residents);
+                // Map server residents to savedFamilyMembers format
+                data.residents.forEach((resident, index) => {
+                    const key = index + 1;
+                    savedFamilyMembers[key] = resident;
+                });
+                console.log('   Updated savedFamilyMembers:', savedFamilyMembers);
             }
-
-            // Replace buttons with edit/delete
-            const buttonContainer = memberDiv.querySelector('.flex.gap-2');
-            if (buttonContainer) {
-                buttonContainer.innerHTML = `
-                    <button type="button" onclick="editFamilyMember(${memberId})" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium text-sm">
-                        ✎ Edit
-                    </button>
-                    <button type="button" onclick="removeFamilyMember(${memberId})" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-medium text-sm">
-                        × Hapus
-                    </button>
-                `;
-            }
-
-            // Now generate health questions for this member
-            generateHealthQuestionsForMember(memberId);
-
-            // Show the "Tambah Anggota Keluarga" button after first save
-            const addButton = document.getElementById('add-family-member-btn');
-            if (addButton) {
-                addButton.classList.remove('hidden');
-            }
-
-            showSuccess('Data anggota keluarga berhasil disimpan ke database');
         })
         .catch(error => {
-            console.error('Error saving family members:', error);
-            showError('Gagal menyimpan data anggota keluarga. Silakan coba lagi.');
-        });
-    };
-
-    // Edit family member
-    window.editFamilyMember = function(memberId) {
-        const memberDiv = document.getElementById(`member-${memberId}`);
-        if (!memberDiv) return;
-
-        // Remove saved styling
-        memberDiv.classList.remove('bg-green-50', 'border-green-300');
-
-        // Enable editing
-        memberDiv.querySelectorAll('input, select').forEach(field => {
-            field.readOnly = false;
-            if (field.tagName === 'SELECT') {
-                field.style.pointerEvents = 'auto';
-            }
-            field.classList.remove('bg-gray-100', 'cursor-not-allowed');
-        });
-
-        // Update header
-        const header = memberDiv.querySelector('h4');
-        if (header) {
-            header.innerHTML = `Anggota ${memberId}`;
-        }
-
-        // Replace buttons back to save/delete
-        const buttonContainer = memberDiv.querySelector('.flex.gap-2');
-        if (buttonContainer) {
-            buttonContainer.innerHTML = `
-                <button type="button" onclick="saveFamilyMember(${memberId})" class="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium text-sm">
-                    ✓ Simpan Anggota
-                </button>
-                <button type="button" onclick="removeFamilyMember(${memberId})" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-medium text-sm">
-                    × Hapus
-                </button>
-            `;
-        }
-    };
-
-    // Remove family member
-    window.removeFamilyMember = function(memberId) {
-        showConfirm(
-            'Data anggota keluarga dan pertanyaan kesehatan terkait akan dihapus permanen. Apakah Anda yakin?',
-            () => {
-                // Remove member div
-                const memberDiv = document.getElementById(`member-${memberId}`);
-                if (memberDiv) {
-                    memberDiv.remove();
-                }
-
-                // Remove health questions for this member
-                const healthDiv = document.getElementById(`health-member-${memberId}`);
-                if (healthDiv) {
-                    healthDiv.remove();
-                }
-
-                showSuccess('Anggota keluarga berhasil dihapus');
-            },
-            'Hapus Anggota Keluarga?'
-        );
-    };
-
-    // Initialize file upload preview for family member KTP/KIA
-    function initializeFamilyKtpUpload(memberId) {
-        const container = document.querySelector(`.family-ktp-upload-container[data-member-id="${memberId}"]`);
-        if (!container) return;
-
-        const uploadArea = container.querySelector('.family-ktp-upload-area');
-        const fileInput = container.querySelector('.family-ktp-file-input');
-        const placeholder = container.querySelector('.family-ktp-placeholder');
-        const preview = container.querySelector('.family-ktp-preview');
-        const previewContent = container.querySelector(`#ktpPreviewContent_${memberId}`);
-        const fileNameDisplay = container.querySelector(`#ktpFileName_${memberId}`);
-        const changeBtn = container.querySelector('.change-family-ktp-btn');
-
-        // Click to upload
-        uploadArea.addEventListener('click', (e) => {
-            if (!e.target.closest('.change-family-ktp-btn')) {
-                fileInput.click();
-            }
-        });
-
-        // File input change
-        fileInput.addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (file) {
-                handleFamilyKtpFile(file, memberId, placeholder, preview, previewContent, fileNameDisplay);
-            }
-        });
-
-        // Change button
-        if (changeBtn) {
-            changeBtn.addEventListener('click', function(e) {
-                e.stopPropagation();
-                fileInput.value = '';
-                placeholder.classList.remove('hidden');
-                preview.classList.add('hidden');
-            });
-        }
-
-        // Drag and drop
-        uploadArea.addEventListener('dragover', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            uploadArea.classList.add('border-yellow-500', 'bg-yellow-50');
-        });
-
-        uploadArea.addEventListener('dragleave', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            uploadArea.classList.remove('border-yellow-500', 'bg-yellow-50');
-        });
-
-        uploadArea.addEventListener('drop', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            uploadArea.classList.remove('border-yellow-500', 'bg-yellow-50');
-
-            const file = e.dataTransfer.files[0];
-            if (file) {
-                // Create a new FileList-like object
-                const dataTransfer = new DataTransfer();
-                dataTransfer.items.add(file);
-                fileInput.files = dataTransfer.files;
-
-                handleFamilyKtpFile(file, memberId, placeholder, preview, previewContent, fileNameDisplay);
-            }
+            console.error('❌ Error saving family members:', error);
         });
     }
 
-    // Handle family member KTP/KIA file with validation and preview
-    function handleFamilyKtpFile(file, memberId, placeholder, preview, previewContent, fileNameDisplay) {
-        // Validate file size (2MB)
-        if (file.size > 2048000) {
-            showNotification('...�� Ukuran file terlalu besar. Maksimal 2MB', 'error');
-            document.getElementById(`family_ktp_${memberId}`).value = '';
+    // KTP file handling in modal
+    document.getElementById('modal_ktp_file').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('modal_ktp_image').src = e.target.result;
+                document.getElementById('modal_ktp_filename').textContent = file.name;
+                document.getElementById('modal_ktp_placeholder').classList.add('hidden');
+                document.getElementById('modal_ktp_preview').classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    // Load saved health data from database
+    async function loadSavedHealthData() {
+        console.log('loadSavedHealthData called with:', savedHealthData);
+
+        if (!savedHealthData || Object.keys(savedHealthData).length === 0) {
             return;
         }
 
-        // Show preview based on file type
-        if (file.type.startsWith('image/')) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                previewContent.innerHTML = `<img src="${e.target.result}" alt="Preview KTP" class="max-h-32 mx-auto rounded-lg">`;
-                fileNameDisplay.textContent = `📷 ${file.name} (${formatFileSize(file.size)})`;
-                placeholder.classList.add('hidden');
-                preview.classList.remove('hidden');
-                showNotification('� File berhasil diupload', 'success');
-            };
-            reader.readAsDataURL(file);
-        } else if (file.type === 'application/pdf') {
-            previewContent.innerHTML = `
-                <div class="text-center">
-                    <div class="text-4xl mb-1">📄</div>
-                    <p class="text-gray-600 text-xs font-medium">PDF Document</p>
-                </div>
-            `;
-            fileNameDisplay.textContent = `📄 ${file.name} (${formatFileSize(file.size)})`;
-            placeholder.classList.add('hidden');
-            preview.classList.remove('hidden');
-            showNotification('� File berhasil diupload', 'success');
-        } else {
-            showNotification('...�� Format file tidak didukung. Gunakan JPG, PNG, atau PDF', 'error');
-            document.getElementById(`family_ktp_${memberId}`).value = '';
+        // Create health section if needed
+        const healthKeys = Object.keys(savedHealthData);
+
+        for (const memberId of healthKeys) {
+            const healthData = savedHealthData[memberId];
+            console.log(`Loading health data for member ${memberId}:`, healthData);
+
+            // Generate health questions for this member
+            await generateHealthQuestionsForMember(parseInt(memberId));
+
+            // Wait for DOM update
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            // Find and fill the health data
+            const healthMemberDiv = document.getElementById(`health-member-${memberId}`);
+            if (healthMemberDiv) {
+                // All radio button fields to restore (including new conditional questions)
+                const radioFields = ['jkn', 'merokok', 'jamban', 'air_bersih', 'tb_paru', 'obat_tbc', 'gejala_tb', 'hipertensi', 'obat_hipertensi', 'ukur_tensi', 'kontrasepsi', 'melahirkan_faskes', 'asi_eksklusif', 'imunisasi_lengkap', 'pemantauan_balita'];
+
+                radioFields.forEach(field => {
+                    if (healthData[field]) {
+                        const radio = healthMemberDiv.querySelector(`input[name="health[${memberId}][${field}]"][value="${healthData[field]}"]`);
+                        if (radio) {
+                            radio.checked = true;
+                            console.log(`Set ${field} = ${healthData[field]} for member ${memberId}`);
+
+                            // Trigger change event for conditional fields
+                            radio.dispatchEvent(new Event('change', { bubbles: true }));
+                        }
+                    }
+                });
+
+                // Number input fields (sistolik, diastolik)
+                const numberFields = ['sistolik', 'diastolik'];
+                numberFields.forEach(field => {
+                    if (healthData[field]) {
+                        const input = healthMemberDiv.querySelector(`input[name="health[${memberId}][${field}]"]`);
+                        if (input) {
+                            input.value = healthData[field];
+                            console.log(`Set ${field} = ${healthData[field]} for member ${memberId}`);
+                        }
+                    }
+                });
+
+                // Show tensi input if ukur_tensi = 1
+                if (healthData.ukur_tensi === '1' || healthData.ukur_tensi === 1) {
+                    const tensiDiv = document.getElementById(`health_q10b_${memberId}`);
+                    if (tensiDiv) {
+                        tensiDiv.classList.remove('hidden');
+                    }
+                }
+            }
         }
+
+        console.log('Finished loading health data');
     }
 
     // Generate health questions per family member
     async function generateHealthQuestionsForMember(memberId) {
         console.log('generateHealthQuestionsForMember dipanggil untuk member:', memberId);
 
-        // Get member name from the form
-        const memberDiv = document.getElementById(`member-${memberId}`);
-        let memberName = `Anggota ${memberId}`;
-        if (memberDiv) {
-            const namaInput = memberDiv.querySelector('input[name*="[nama_lengkap]"]');
-            if (namaInput && namaInput.value) {
-                memberName = namaInput.value;
+        // Get member data from savedFamilyMembers
+        const memberData = savedFamilyMembers[memberId];
+        let memberName = memberData?.nama_lengkap || `Anggota ${memberId}`;
+        let memberAge = parseInt(memberData?.umur) || 0;
+
+        // Calculate age from tanggal_lahir if umur not set
+        if (!memberAge && memberData?.tanggal_lahir) {
+            let dateStr = memberData.tanggal_lahir;
+            if (dateStr.includes('/')) {
+                const [d, m, y] = dateStr.split('/');
+                dateStr = `${y}-${m}-${d}`;
             }
+            memberAge = calculateAge(dateStr);
         }
 
-        // First, ensure the health section is expanded by finding its parent section
-        // and opening it if it's collapsed
-        let healthContainer = document.getElementById('health-questions-container');
+        console.log(`Member ${memberId}: ${memberName}, Umur: ${memberAge}`);
+
+        // Get the container that already exists in HTML
+        const healthContainer = document.getElementById('dynamic-health-container');
 
         if (!healthContainer) {
-            console.log('Health container tidak ditemukan, mencoba membuka section...');
-
-            // Find all section headers and click on the one containing health questions
-            const sectionHeaders = document.querySelectorAll('[id^="health-per-member-"]');
-            if (sectionHeaders.length > 0) {
-                const healthSection = sectionHeaders[0].closest('[x-data]');
-                if (healthSection) {
-                    // Try to open the section by triggering Alpine.js
-                    const toggleButton = healthSection.querySelector('h2');
-                    if (toggleButton) {
-                        console.log('Membuka section health...');
-                        toggleButton.click();
-
-                        // Wait a bit for the section to open
-                        await new Promise(resolve => setTimeout(resolve, 300));
-
-                        // Try to find the container again
-                        healthContainer = document.getElementById('health-questions-container');
-                    }
-                }
-            }
-        }
-
-        console.log('Health container found:', healthContainer);
-
-        if (!healthContainer) {
-            console.error('Health container tidak ditemukan setelah mencoba membuka section!');
-            showError('Bagian kesehatan belum tersedia. Silakan refresh halaman dan coba lagi.', 'Error');
+            console.error('FATAL: dynamic-health-container tidak ditemukan');
+            alert('Error: Tidak dapat menampilkan pertanyaan kesehatan. Silakan refresh halaman.');
             return;
         }
 
-        // Hide the "no family members" notice
-        const noMembersNotice = document.getElementById('no-family-members-notice');
-        if (noMembersNotice) {
-            noMembersNotice.classList.add('hidden');
-        }
+        console.log('Using health container:', healthContainer);
 
-        // Check if already exists
+        // Check if already exists for this member
         const existingDiv = document.getElementById(`health-member-${memberId}`);
         if (existingDiv) {
             console.log('Health questions sudah ada untuk member:', memberId);
+            existingDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            existingDiv.classList.add('ring-2', 'ring-yellow-400');
+            setTimeout(() => existingDiv.classList.remove('ring-2', 'ring-yellow-400'), 2000);
             return;
         }
 
+        // Build questions HTML based on age
+        let questionsHTML = `
+            <h4 class="font-semibold text-gray-800 mb-3 pb-2 border-b flex items-center gap-2">
+                <span class="bg-yellow-500 text-white text-xs px-2 py-1 rounded">ID: ${memberId}</span>
+                ${memberName}
+                <span class="text-sm font-normal text-gray-500">(Umur: ${memberAge} tahun)</span>
+            </h4>
+
+            <div class="space-y-4">
+                <!-- Pertanyaan untuk SEMUA UMUR -->
+                <div class="bg-gray-50 p-3 rounded-lg">
+                    <p class="text-xs font-semibold text-gray-500 mb-3">📋 Pertanyaan untuk Semua Umur</p>
+
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">1. Apakah mempunyai kartu jaminan kesehatan atau JKN?</label>
+                            <div class="flex gap-4">
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="health[${memberId}][jkn]" value="1" class="w-4 h-4 text-yellow-500">
+                                    <span class="text-sm">1. Ya</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="health[${memberId}][jkn]" value="2" class="w-4 h-4 text-yellow-500">
+                                    <span class="text-sm">2. Tidak</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">2. Apakah Saudara merokok?</label>
+                            <div class="flex flex-col gap-2">
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="health[${memberId}][merokok]" value="1" class="w-4 h-4 text-yellow-500">
+                                    <span class="text-sm">1. Ya (setiap hari, sering/kadang-kadang)</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="health[${memberId}][merokok]" value="2" class="w-4 h-4 text-yellow-500">
+                                    <span class="text-sm">2. Tidak (tidak/sudah berhenti)</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+        `;
+
+        // Pertanyaan untuk umur >= 15 tahun
+        if (memberAge >= 15) {
+            questionsHTML += `
+                <div class="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                    <p class="text-xs font-semibold text-blue-600 mb-3">📋 Pertanyaan untuk Umur ≥ 15 Tahun</p>
+
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">3. Apakah Saudara biasa buang air besar di jamban?</label>
+                            <div class="flex gap-4">
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="health[${memberId}][jamban]" value="1" class="w-4 h-4 text-yellow-500">
+                                    <span class="text-sm">1. Ya</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="health[${memberId}][jamban]" value="2" class="w-4 h-4 text-yellow-500">
+                                    <span class="text-sm">2. Tidak</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">4. Apakah Saudara biasa menggunakan air bersih?</label>
+                            <div class="flex gap-4">
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="health[${memberId}][air_bersih]" value="1" class="w-4 h-4 text-yellow-500">
+                                    <span class="text-sm">1. Ya</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="health[${memberId}][air_bersih]" value="2" class="w-4 h-4 text-yellow-500">
+                                    <span class="text-sm">2. Tidak</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">5. Apakah Saudara pernah didiagnosis menderita tuberkulosis (TB) paru?</label>
+                            <div class="flex gap-4">
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="health[${memberId}][tb_paru]" value="1" class="w-4 h-4 text-yellow-500">
+                                    <span class="text-sm">1. Ya</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="health[${memberId}][tb_paru]" value="2" class="w-4 h-4 text-yellow-500">
+                                    <span class="text-sm">2. Tidak → P.7</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div id="health_q6_${memberId}" class="pl-4 border-l-2 border-blue-300">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">6. Bila ya, apakah meminum obat TBC secara teratur (selama 6 bulan)?</label>
+                            <div class="flex gap-4">
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="health[${memberId}][obat_tbc]" value="1" class="w-4 h-4 text-yellow-500">
+                                    <span class="text-sm">1. Ya → P.8</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="health[${memberId}][obat_tbc]" value="2" class="w-4 h-4 text-yellow-500">
+                                    <span class="text-sm">2. Tidak → P.8</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">7. Apakah Saudara pernah menderita batuk berdahak > 2 minggu disertai satu atau lebih gejala: dahak bercampur darah/batuk berdarah, berat badan menurun, berkeringat malam hari tanpa kegiatan fisik, dan demam > 1 bulan?</label>
+                            <div class="flex gap-4">
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="health[${memberId}][gejala_tb]" value="1" class="w-4 h-4 text-yellow-500">
+                                    <span class="text-sm">1. Ya</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="health[${memberId}][gejala_tb]" value="2" class="w-4 h-4 text-yellow-500">
+                                    <span class="text-sm">2. Tidak</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">8. Apakah Saudara pernah didiagnosis menderita tekanan darah tinggi/hipertensi?</label>
+                            <div class="flex gap-4">
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="health[${memberId}][hipertensi]" value="1" class="w-4 h-4 text-yellow-500">
+                                    <span class="text-sm">1. Ya</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="health[${memberId}][hipertensi]" value="2" class="w-4 h-4 text-yellow-500">
+                                    <span class="text-sm">2. Tidak → P.10a</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div id="health_q9_${memberId}" class="pl-4 border-l-2 border-blue-300">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">9. Bila ya, apakah selama ini Saudara meminum obat tekanan darah tinggi/hipertensi secara teratur?</label>
+                            <div class="flex gap-4">
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="health[${memberId}][obat_hipertensi]" value="1" class="w-4 h-4 text-yellow-500">
+                                    <span class="text-sm">1. Ya → P.11</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="health[${memberId}][obat_hipertensi]" value="2" class="w-4 h-4 text-yellow-500">
+                                    <span class="text-sm">2. Tidak → P.11</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">10a. Apakah dilakukan pengukuran tekanan darah?</label>
+                            <div class="flex gap-4">
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="health[${memberId}][ukur_tensi]" value="1" class="w-4 h-4 text-yellow-500" onchange="toggleTensiInput(${memberId}, true)">
+                                    <span class="text-sm">1. Ya</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="health[${memberId}][ukur_tensi]" value="2" class="w-4 h-4 text-yellow-500" onchange="toggleTensiInput(${memberId}, false)">
+                                    <span class="text-sm">2. Tidak → P.11</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div id="health_q10b_${memberId}" class="pl-4 border-l-2 border-blue-300 hidden">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">10b. Hasil pengukuran tekanan darah</label>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="text-xs text-gray-500">b.1. Sistolik (mmHg)</label>
+                                    <input type="number" name="health[${memberId}][sistolik]" class="w-full px-3 py-2 text-sm border rounded-lg" placeholder="mmHg">
+                                </div>
+                                <div>
+                                    <label class="text-xs text-gray-500">b.2. Diastolik (mmHg)</label>
+                                    <input type="number" name="health[${memberId}][diastolik]" class="w-full px-3 py-2 text-sm border rounded-lg" placeholder="mmHg">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Get member gender for conditional questions
+        const memberGender = memberData?.jenis_kelamin; // 1 = Laki-laki, 2 = Perempuan
+
+        // Pertanyaan 11: Untuk wanita 10-54 tahun (tidak hamil) atau laki-laki >= 10 tahun
+        if ((memberGender === '2' && memberAge >= 10 && memberAge <= 54) ||
+            (memberGender === '1' && memberAge >= 10)) {
+            const genderLabel = memberGender === '2' ? 'wanita berstatus menikah (usia 10-54 tahun) dan tidak hamil' : 'laki-laki berstatus menikah (usia ≥ 10 tahun)';
+            questionsHTML += `
+                <div class="bg-purple-50 p-3 rounded-lg border border-purple-200">
+                    <p class="text-xs font-semibold text-purple-600 mb-3">📋 Untuk Anggota Keluarga ${genderLabel}</p>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">11. Apakah Saudara menggunakan alat kontrasepsi atau ikut program Keluarga Berencana?</label>
+                        <div class="flex gap-4">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="health[${memberId}][kontrasepsi]" value="1" class="w-4 h-4 text-yellow-500">
+                                <span class="text-sm">1. Ya</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="health[${memberId}][kontrasepsi]" value="2" class="w-4 h-4 text-yellow-500">
+                                <span class="text-sm">2. Tidak</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Pertanyaan 12: Untuk ibu yang memiliki anak < 12 bulan
+        // Note: Ini perlu data tambahan dari user tentang apakah punya bayi < 12 bulan
+        if (memberGender === '2' && memberAge >= 15 && memberAge <= 54) {
+            questionsHTML += `
+                <div class="bg-pink-50 p-3 rounded-lg border border-pink-200">
+                    <p class="text-xs font-semibold text-pink-600 mb-3">📋 Untuk Ibu yang memiliki Anggota Keluarga berumur < 12 bulan</p>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">12. Apakah saat Ibu melahirkan [NAMA] bersalin di fasilitas pelayanan kesehatan?</label>
+                        <div class="flex gap-4">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="health[${memberId}][melahirkan_faskes]" value="1" class="w-4 h-4 text-yellow-500">
+                                <span class="text-sm">1. Ya</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="health[${memberId}][melahirkan_faskes]" value="2" class="w-4 h-4 text-yellow-500">
+                                <span class="text-sm">2. Tidak</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="health[${memberId}][melahirkan_faskes]" value="3" class="w-4 h-4 text-yellow-500">
+                                <span class="text-sm">3. Tidak Ada (jika tidak punya anak < 12 bulan)</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Pertanyaan 13: Untuk bayi 0-6 bulan - ASI eksklusif
+        if (memberAge >= 0 && memberAge < 1) { // Bayi 0-6 bulan (belum 1 tahun)
+            questionsHTML += `
+                <div class="bg-green-50 p-3 rounded-lg border border-green-200">
+                    <p class="text-xs font-semibold text-green-600 mb-3">📋 Untuk Anggota Keluarga berumur 0-6 bulan</p>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">13. Apakah bayi ini pada waktu usia 0-6 bulan hanya diberi ASI eksklusif?</label>
+                        <div class="flex gap-4">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="health[${memberId}][asi_eksklusif]" value="1" class="w-4 h-4 text-yellow-500">
+                                <span class="text-sm">1. Ya</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="health[${memberId}][asi_eksklusif]" value="2" class="w-4 h-4 text-yellow-500">
+                                <span class="text-sm">2. Tidak</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Pertanyaan 14: Untuk bayi 0-11 bulan - imunisasi
+        if (memberAge < 1) {
+            questionsHTML += `
+                <div class="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+                    <p class="text-xs font-semibold text-yellow-600 mb-3">📋 Untuk Anggota Keluarga berumur 0-11 bulan</p>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">14. Apakah selama bayi usia 0-11 bulan diberikan imunisasi lengkap?<br><span class="text-xs text-gray-500">(HB0, BCG, DPT-HB1, PT-HB2, DPT-HB3, Polio1, Polio2, Polio3, Polio4, Campak)</span></label>
+                        <div class="flex gap-4">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="health[${memberId}][imunisasi_lengkap]" value="1" class="w-4 h-4 text-yellow-500">
+                                <span class="text-sm">1. Ya</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="health[${memberId}][imunisasi_lengkap]" value="2" class="w-4 h-4 text-yellow-500">
+                                <span class="text-sm">2. Tidak</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Pertanyaan 15: Untuk anak 2-59 bulan (2 bulan - 4 tahun 11 bulan) - pemantauan balita
+        if (memberAge >= 0 && memberAge < 5) {
+            questionsHTML += `
+                <div class="bg-orange-50 p-3 rounded-lg border border-orange-200">
+                    <p class="text-xs font-semibold text-orange-600 mb-3">📋 Untuk Anggota Keluarga berumur 2-59 bulan</p>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">15. Apakah dalam 1 bulan terakhir dilakukan pemantauan pertumbuhan balita?</label>
+                        <div class="flex gap-4">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="health[${memberId}][pemantauan_balita]" value="1" class="w-4 h-4 text-yellow-500">
+                                <span class="text-sm">1. Ya</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="health[${memberId}][pemantauan_balita]" value="2" class="w-4 h-4 text-yellow-500">
+                                <span class="text-sm">2. Tidak</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        questionsHTML += `</div>`;
+
+        // Create health question card for this member
         const memberHealthDiv = document.createElement('div');
         memberHealthDiv.className = 'border border-gray-300 rounded-lg p-4 bg-white';
         memberHealthDiv.id = `health-member-${memberId}`;
-        memberHealthDiv.innerHTML = `
-            <h4 class="font-semibold text-gray-800 mb-3 pb-2 border-b">${memberName}</h4>
-
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">1. Apakah mempunyai kartu jaminan kesehatan atau JKN?</label>
-                    <div class="flex gap-4">
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="radio" name="health[${memberId}][jkn]" value="1" class="w-4 h-4 text-yellow-500">
-                            <span class="text-sm">1. Ya</span>
-                        </label>
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="radio" name="health[${memberId}][jkn]" value="2" class="w-4 h-4 text-yellow-500">
-                            <span class="text-sm">2. Tidak</span>
-                        </label>
-                    </div>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">2. Apakah Saudara merokok?</label>
-                    <div class="flex flex-col gap-2">
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="radio" name="health[${memberId}][merokok]" value="1" class="w-4 h-4 text-yellow-500">
-                            <span class="text-sm">1. Ya (setiap hari, sering/kadang-kadang)</span>
-                        </label>
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="radio" name="health[${memberId}][merokok]" value="2" class="w-4 h-4 text-yellow-500">
-                            <span class="text-sm">2. Tidak (tidak/sudah berhenti)</span>
-                        </label>
-                    </div>
-                </div>
-            </div>
-        `;
+        memberHealthDiv.style.cssText = 'display: block !important; visibility: visible !important;';
+        memberHealthDiv.innerHTML = questionsHTML;
 
         healthContainer.appendChild(memberHealthDiv);
         console.log('Health questions berhasil ditambahkan untuk member:', memberId);
 
-        // Highlight section yang baru ditambahkan
-        memberHealthDiv.classList.add('ring-2', 'ring-green-400');
+        // Add auto-save listeners to health radio buttons
+        memberHealthDiv.querySelectorAll('input[type="radio"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                autoSaveHealthData(memberId);
+            });
+        });
+
+        // Add auto-save listeners to number inputs (sistolik, diastolik) with debounce
+        memberHealthDiv.querySelectorAll('input[type="number"]').forEach(input => {
+            input.addEventListener('input', debounce(function() {
+                autoSaveHealthData(memberId);
+            }, 500));
+        });
+
+        // Scroll ke section yang baru ditambahkan
         setTimeout(() => {
-            memberHealthDiv.classList.remove('ring-2', 'ring-green-400');
-        }, 2000);
+            memberHealthDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            // Highlight section yang baru ditambahkan
+            memberHealthDiv.classList.add('ring-2', 'ring-green-400');
+            setTimeout(() => {
+                memberHealthDiv.classList.remove('ring-2', 'ring-green-400');
+            }, 3000);
+        }, 300);
+    }
+
+    // Auto-save health data for a member
+    function autoSaveHealthData(memberId) {
+        const healthMemberDiv = document.getElementById(`health-member-${memberId}`);
+        if (!healthMemberDiv) {
+            console.error('❌ Health member div not found for member:', memberId);
+            return;
+        }
+
+        // Collect ALL health data for this member
+        const healthData = {};
+
+        // All radio button fields (including new conditional questions)
+        const radioFields = ['jkn', 'merokok', 'jamban', 'air_bersih', 'tb_paru', 'obat_tbc', 'gejala_tb', 'hipertensi', 'obat_hipertensi', 'ukur_tensi', 'kontrasepsi', 'melahirkan_faskes', 'asi_eksklusif', 'imunisasi_lengkap', 'pemantauan_balita'];
+        radioFields.forEach(field => {
+            const radio = healthMemberDiv.querySelector(`input[name="health[${memberId}][${field}]"]:checked`);
+            if (radio) {
+                healthData[field] = radio.value;
+            }
+        });
+
+        // Number input fields (sistolik, diastolik)
+        const numberFields = ['sistolik', 'diastolik'];
+        numberFields.forEach(field => {
+            const input = healthMemberDiv.querySelector(`input[name="health[${memberId}][${field}]"]`);
+            if (input && input.value) {
+                healthData[field] = input.value;
+            }
+        });
+
+        console.log('🔄 Auto-saving health data for member', memberId, healthData);
+
+        // Send to server
+        const formData = new FormData();
+        formData.append('_token', '{{ csrf_token() }}');
+        formData.append('response_id', responseId);
+
+        // Append all health data fields
+        Object.keys(healthData).forEach(key => {
+            formData.append(`health[${memberId}][${key}]`, healthData[key]);
+        });
+
+        fetch('{{ route("questionnaire.save-health-data", $questionnaire->id) }}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('✅ Health data saved successfully:', data);
+                // Show subtle indicator
+                const indicator = document.createElement('span');
+                indicator.className = 'text-green-500 text-xs ml-2';
+                indicator.textContent = '✓ Tersimpan';
+                const header = healthMemberDiv.querySelector('h4');
+                if (header) {
+                    const existingIndicator = header.querySelector('.text-green-500');
+                    if (existingIndicator) existingIndicator.remove();
+                    header.appendChild(indicator);
+                    setTimeout(() => indicator.remove(), 2000);
+                }
+            } else {
+                console.error('❌ Health data save failed:', data.message || 'Unknown error');
+            }
+        })
+        .catch(error => {
+            console.error('❌ Error saving health data:', error);
+        });
+    }
+
+    // Debounce function for input fields
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
     }
 
     // Toggle health details
@@ -1796,14 +2511,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 // Restore saved value if exists
                 if (savedValue) {
+                    console.log('Province savedValue:', savedValue);
                     choicesInstances[select.id].setChoiceByValue(savedValue);
 
                     // Trigger cascade to load regencies
                     const selectedOption = select.querySelector(`option[value="${savedValue}"]`);
+                    console.log('Selected province option:', selectedOption);
                     if (selectedOption && selectedOption.dataset.code) {
+                        const provinceCode = selectedOption.dataset.code;
+                        console.log('Loading regencies for province code:', provinceCode);
                         const nextRegency = document.querySelector('select[data-type=\"regency\"]');
                         if (nextRegency) {
-                            loadRegencies(selectedOption.dataset.code, nextRegency);
+                            loadRegencies(provinceCode, nextRegency);
                         }
                     }
                 }
@@ -1850,16 +2569,59 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Restore saved value if exists
             if (savedValue) {
-                choicesInstances[regencySelect.id].setChoiceByValue(savedValue);
+                // Wait for Choices.js to finish rendering
+                setTimeout(() => {
+                    console.log('Regency savedValue:', savedValue);
+                    const options = Array.from(regencySelect.options);
+                    console.log('Available regency options:', options.map(o => ({value: o.value, text: o.textContent.trim()})));
 
-                // Trigger cascade to load districts
-                const selectedOption = regencySelect.querySelector(`option[value="${savedValue}"]`);
-                if (selectedOption && selectedOption.dataset.code) {
-                    const nextDistrict = document.querySelector('select[data-type=\"district\"]');
-                    if (nextDistrict) {
-                        loadDistricts(selectedOption.dataset.code, nextDistrict);
+                    // Try to set by value (ID) first
+                    let matched = false;
+                    let matchedValue = null;
+
+                    // Try direct ID match
+                    const optById = options.find(opt => opt.value === savedValue);
+                    if (optById) {
+                        matchedValue = optById.value;
+                        matched = true;
+                        console.log('Matched regency by ID:', savedValue);
                     }
-                }
+
+                    // Try text match (case insensitive, trimmed)
+                    if (!matched) {
+                        console.log('Trying to match by text:', savedValue);
+                        const savedValueUpper = savedValue.toString().trim().toUpperCase();
+                        const optByText = options.find(opt =>
+                            opt.value !== '' && opt.textContent.trim().toUpperCase() === savedValueUpper
+                        );
+                        if (optByText) {
+                            matchedValue = optByText.value;
+                            matched = true;
+                            console.log('Matched regency by text:', optByText.textContent.trim(), 'ID:', optByText.value);
+                        }
+                    }
+
+                    // Set the matched value
+                    if (matched && matchedValue) {
+                        choicesInstances[regencySelect.id].setChoiceByValue(matchedValue);
+
+                        // Wait a bit then trigger cascade
+                        setTimeout(() => {
+                            const selectedOption = regencySelect.options[regencySelect.selectedIndex];
+                            console.log('Selected regency after set:', selectedOption ? selectedOption.textContent : null, selectedOption ? selectedOption.value : null);
+                            if (selectedOption && selectedOption.value && selectedOption.dataset.code) {
+                                const regencyCode = selectedOption.dataset.code;
+                                console.log('Loading districts for regency code:', regencyCode);
+                                const nextDistrict = document.querySelector('select[data-type=\"district\"]');
+                                if (nextDistrict) {
+                                    loadDistricts(regencyCode, nextDistrict);
+                                }
+                            }
+                        }, 50);
+                    } else {
+                        console.log('NO MATCH FOUND for:', savedValue);
+                    }
+                }, 100);
             }
         } catch (error) {
             console.error('Error loading regencies:', error);
@@ -1904,16 +2666,55 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Restore saved value if exists
             if (savedValue) {
-                choicesInstances[districtSelect.id].setChoiceByValue(savedValue);
+                setTimeout(() => {
+                    console.log('District savedValue:', savedValue);
+                    const options = Array.from(districtSelect.options);
+                    console.log('Available district options:', options.map(o => ({value: o.value, text: o.textContent.trim()})));
 
-                // Trigger cascade to load villages
-                const selectedOption = districtSelect.querySelector(`option[value="${savedValue}"]`);
-                if (selectedOption && selectedOption.dataset.code) {
-                    const nextVillage = document.querySelector('select[data-type=\"village\"]');
-                    if (nextVillage) {
-                        loadVillages(selectedOption.dataset.code, nextVillage);
+                    let matched = false;
+                    let matchedValue = null;
+
+                    // Try direct ID match
+                    const optById = options.find(opt => opt.value === savedValue);
+                    if (optById) {
+                        matchedValue = optById.value;
+                        matched = true;
+                        console.log('Matched district by ID:', savedValue);
                     }
-                }
+
+                    // Try text match
+                    if (!matched) {
+                        console.log('Trying to match district by text:', savedValue);
+                        const savedValueUpper = savedValue.toString().trim().toUpperCase();
+                        const optByText = options.find(opt =>
+                            opt.value !== '' && opt.textContent.trim().toUpperCase() === savedValueUpper
+                        );
+                        if (optByText) {
+                            matchedValue = optByText.value;
+                            matched = true;
+                            console.log('Matched district by text:', optByText.textContent.trim(), 'ID:', optByText.value);
+                        }
+                    }
+
+                    if (matched && matchedValue) {
+                        choicesInstances[districtSelect.id].setChoiceByValue(matchedValue);
+
+                        setTimeout(() => {
+                            const selectedOption = districtSelect.options[districtSelect.selectedIndex];
+                            console.log('Selected district after set:', selectedOption ? selectedOption.textContent : null, selectedOption ? selectedOption.value : null);
+                            if (selectedOption && selectedOption.value && selectedOption.dataset.code) {
+                                const districtCode = selectedOption.dataset.code;
+                                console.log('Loading villages for district code:', districtCode);
+                                const nextVillage = document.querySelector('select[data-type=\"village\"]');
+                                if (nextVillage) {
+                                    loadVillages(districtCode, nextVillage);
+                                }
+                            }
+                        }, 50);
+                    } else {
+                        console.log('NO MATCH FOUND for district:', savedValue);
+                    }
+                }, 100);
             }
         } catch (error) {
             console.error('Error loading districts:', error);
@@ -1958,7 +2759,43 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Restore saved value if exists
             if (savedValue) {
-                choicesInstances[villageSelect.id].setChoiceByValue(savedValue);
+                setTimeout(() => {
+                    console.log('Village savedValue:', savedValue);
+                    const options = Array.from(villageSelect.options);
+                    console.log('Available village options (first 10):', options.slice(0, 10).map(o => ({value: o.value, text: o.textContent.trim()})));
+
+                    let matched = false;
+                    let matchedValue = null;
+
+                    // Try direct ID match
+                    const optById = options.find(opt => opt.value === savedValue);
+                    if (optById) {
+                        matchedValue = optById.value;
+                        matched = true;
+                        console.log('Matched village by ID:', savedValue);
+                    }
+
+                    // Try text match
+                    if (!matched) {
+                        console.log('Trying to match village by text:', savedValue);
+                        const savedValueUpper = savedValue.toString().trim().toUpperCase();
+                        const optByText = options.find(opt =>
+                            opt.value !== '' && opt.textContent.trim().toUpperCase() === savedValueUpper
+                        );
+                        if (optByText) {
+                            matchedValue = optByText.value;
+                            matched = true;
+                            console.log('Matched village by text:', optByText.textContent.trim(), 'ID:', optByText.value);
+                        }
+                    }
+
+                    if (matched && matchedValue) {
+                        choicesInstances[villageSelect.id].setChoiceByValue(matchedValue);
+                        console.log('Village selected successfully');
+                    } else {
+                        console.log('NO MATCH FOUND for village:', savedValue);
+                    }
+                }, 100);
             }
         } catch (error) {
             console.error('Error loading villages:', error);
@@ -1977,7 +2814,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (questionId && this.value) {
                 answeredQuestions.add(questionId);
                 autoSave(questionId, this.value, true);
-                updateProgress();
+
             }
 
             if (provinceCode) {
@@ -2009,7 +2846,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (questionId && this.value) {
                 answeredQuestions.add(questionId);
                 autoSave(questionId, this.value, true);
-                updateProgress();
+
             }
 
             if (regencyCode) {
@@ -2038,7 +2875,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (questionId && this.value) {
                 answeredQuestions.add(questionId);
                 autoSave(questionId, this.value, true);
-                updateProgress();
+
             }
 
             if (districtCode) {
@@ -2062,7 +2899,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (questionId && this.value) {
                 answeredQuestions.add(questionId);
                 autoSave(questionId, this.value, true);
-                updateProgress();
+
             }
 
             // Update map coordinates
@@ -2075,16 +2912,21 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const response = await fetch('/api/puskesmas');
             const result = await response.json();
-            const puskesmasList = Array.isArray(result) ? result : [];
+
+            // Extract data from API response structure
+            const puskesmasList = result.success && Array.isArray(result.data) ? result.data : [];
+
+            console.log('Loaded puskesmas:', puskesmasList.length);
 
             // Populate all puskesmas datalists
             document.querySelectorAll('datalist[id^="puskesmas_list_"]').forEach(datalist => {
                 datalist.innerHTML = '';
                 puskesmasList.forEach(puskesmas => {
                     const option = document.createElement('option');
-                    option.value = puskesmas.name || puskesmas.nama;
+                    option.value = puskesmas.name;
                     datalist.appendChild(option);
                 });
+                console.log(`Populated datalist ${datalist.id} with ${puskesmasList.length} options`);
             });
         } catch (error) {
             console.error('Error loading puskesmas list:', error);
@@ -2107,6 +2949,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 loadOccupations(),
                 loadEducations(),
                 loadFamilyRelations(),
+                loadCitizenTypes(),
                 loadMaritalStatuses(),
                 loadReligions()
             ]);
@@ -2121,14 +2964,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Hide loading overlay
             loadingOverlay.style.opacity = '0';
-            setTimeout(() => {
+            setTimeout(async () => {
                 loadingOverlay.style.display = 'none';
 
-                // Auto-add first family member after page loads
-                const familyMembersList = document.getElementById('family-members-list');
-                if (familyMembersList && familyMembersList.children.length === 0) {
-                    addFamilyMember();
+                // Load saved family members if any exist
+                if (savedFamilyMembers && Object.keys(savedFamilyMembers).length > 0) {
+                    console.log('Loading saved family members...');
+                    await loadSavedFamilyMembers();
                 }
+                // No need to auto-add first member - user clicks "+ Tambah Anggota Keluarga" button
             }, 300);
         } catch (error) {
             console.error('Error initializing page data:', error);
@@ -2228,7 +3072,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Mark as answered and save
             answeredQuestions.add(questionId);
             autoSave(questionId, locationValue, true);
-            updateProgress();
+
 
             // Show brief confirmation
             showLocationSaved();
@@ -2538,7 +3382,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Mark as answered
             answeredQuestions.add(questionId.toString());
-            updateProgress();
+
 
             // Auto-save file upload
             uploadFileToServer(file, questionId, 'image');
@@ -2568,7 +3412,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 // Mark as answered
                 answeredQuestions.add(questionId.toString());
-                updateProgress();
+
 
                 // Auto-save file upload
                 uploadFileToServer(file, questionId, 'file');
@@ -2589,7 +3433,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Mark as answered
             answeredQuestions.add(questionId.toString());
-            updateProgress();
+
 
             // Auto-save file upload
             uploadFileToServer(file, questionId, 'file');
@@ -2608,7 +3452,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Mark as answered
             answeredQuestions.add(questionId.toString());
-            updateProgress();
+
 
             // Auto-save file upload
             uploadFileToServer(file, questionId, 'file');
@@ -2686,6 +3530,756 @@ document.addEventListener('DOMContentLoaded', function() {
             setTimeout(() => notification.remove(), 300);
         }, 3000);
     }
+
+    // =====================================
+    // SECTION VI: KUESIONER TAMBAHAN (Pertanyaan Per KELUARGA)
+    // =====================================
+    let healthQuestionsData = [];
+    let savedSectionVIAnswers = @json($savedSectionVIData ?? []);
+
+    console.log('🔵 Loaded savedSectionVIData:', savedSectionVIAnswers);
+    console.log('🔵 Response ID:', responseId);
+
+    // Load health questions from API
+    async function loadHealthQuestions() {
+        try {
+            const response = await fetch('/api/health-questions');
+            healthQuestionsData = await response.json();
+            console.log('Health questions loaded:', healthQuestionsData);
+            return healthQuestionsData;
+        } catch (error) {
+            console.error('Error loading health questions:', error);
+            return [];
+        }
+    }
+
+    // Check if question should show based on conditions (for per-family questions)
+    // Check if question should show based on conditions (for per-family questions)
+    function questionShouldShowFamily(question, answers) {
+        const conditions = question.show_conditions || {};
+
+        // Check depends_on (conditional based on previous answer)
+        if (conditions.depends_on) {
+            const dependentAnswer = answers[conditions.depends_on];
+            const shouldShow = dependentAnswer && String(dependentAnswer) === String(conditions.depends_value);
+
+            if (!shouldShow) {
+                console.log(`🔒 Hiding ${question.code} - depends on ${conditions.depends_on}=${conditions.depends_value}, got: ${dependentAnswer}`);
+            } else {
+                console.log(`🔓 Showing ${question.code} - condition met`);
+            }
+
+            return shouldShow;
+        }
+
+        return true;
+    }
+
+    // Render Section VI for the entire family
+    function renderSectionVI() {
+        const container = document.getElementById('section-vi-questions');
+        const loading = document.getElementById('section-vi-loading');
+
+        if (!container) return;
+
+        let html = '';
+        let questionNumber = 0;
+
+        // Iterate through categories
+        healthQuestionsData.forEach(category => {
+            const categoryColors = {
+                'ptm': { bg: 'gray-50', border: 'gray-200', text: 'gray-700', accent: 'gray-500' },
+                'ibu_hamil': { bg: 'pink-50', border: 'pink-200', text: 'pink-700', accent: 'pink-500' },
+                'ibu_melahirkan': { bg: 'purple-50', border: 'purple-200', text: 'purple-700', accent: 'purple-500' },
+                'bayi': { bg: 'green-50', border: 'green-200', text: 'green-700', accent: 'green-500' }
+            };
+            const colors = categoryColors[category.code] || categoryColors['ptm'];
+
+            html += `
+                <div class="bg-${colors.bg} rounded-lg border border-${colors.border} overflow-hidden">
+                    <div class="bg-${colors.accent} px-4 py-3 text-white">
+                        <h4 class="font-semibold flex items-center gap-2">
+                            📋 ${category.name}
+                        </h4>
+                        ${category.description ? `<p class="text-sm opacity-90 mt-1">${category.description}</p>` : ''}
+                    </div>
+                    <div class="p-4 space-y-4">
+            `;
+
+            category.questions.forEach(question => {
+                questionNumber++;
+                const savedAnswer = savedSectionVIAnswers[question.code] || '';
+                const shouldShow = questionShouldShowFamily(question, savedSectionVIAnswers);
+                const displayStyle = shouldShow ? '' : 'display: none;';
+
+                html += renderHealthQuestionFamily(question, questionNumber, savedAnswer, displayStyle);
+            });
+
+            html += `
+                    </div>
+                </div>
+            `;
+        });
+
+        container.innerHTML = html;
+        container.classList.remove('hidden');
+        loading.classList.add('hidden');
+
+        // Setup event listeners
+        setupSectionVIListeners();
+    }
+
+    // Render a single health question for family
+    function renderHealthQuestionFamily(question, number, savedAnswer, displayStyle) {
+        const inputName = `health_vi[${question.code}]`;
+        let html = `<div class="question-item bg-white rounded-lg p-4 border" data-question-code="${question.code}" style="${displayStyle}">`;
+
+        // Debug log
+        if (savedAnswer) {
+            console.log(`🔄 Rendering ${question.code} with saved answer:`, savedAnswer);
+        }
+
+        // Question text
+        html += `<label class="block text-sm font-medium text-gray-700 mb-2">${number}. ${question.question_text}</label>`;
+
+        // Note if exists
+        if (question.question_note) {
+            html += `<p class="text-xs text-gray-500 mb-2 italic">${question.question_note}</p>`;
+        }
+
+        // Render based on input type
+        switch (question.input_type) {
+            case 'radio':
+                html += `<div class="flex flex-wrap gap-4">`;
+                question.options.forEach(opt => {
+                    // Convert both to string for comparison
+                    const checked = String(savedAnswer) === String(opt.value) ? 'checked' : '';
+                    if (checked) {
+                        console.log(`  ✓ Checking radio option ${opt.value} for ${question.code}`);
+                    }
+                    html += `
+                        <label class="flex items-center gap-2 cursor-pointer hover:bg-gray-50 px-2 py-1 rounded">
+                            <input type="radio" name="${inputName}" value="${opt.value}"
+                                   class="w-4 h-4 text-purple-500 health-vi-input"
+                                   data-question-code="${question.code}"
+                                   ${checked}>
+                            <span class="text-sm">${opt.value}. ${opt.label}</span>
+                        </label>
+                    `;
+                });
+                html += `</div>`;
+                break;
+
+            case 'checkbox':
+                const savedValues = savedAnswer ? (Array.isArray(savedAnswer) ? savedAnswer : savedAnswer.split(',')) : [];
+                html += `<div class="grid grid-cols-1 md:grid-cols-2 gap-2">`;
+                question.options.forEach(opt => {
+                    const checked = savedValues.includes(String(opt.value)) || savedValues.includes(opt.value) ? 'checked' : '';
+                    html += `
+                        <label class="flex items-center gap-2 cursor-pointer hover:bg-gray-50 px-2 py-1 rounded">
+                            <input type="checkbox" name="${inputName}[]" value="${opt.value}"
+                                   class="w-4 h-4 text-purple-500 health-vi-input"
+                                   data-question-code="${question.code}"
+                                   ${checked}>
+                            <span class="text-sm">${opt.label}</span>
+                        </label>
+                    `;
+                });
+                html += `</div>`;
+                break;
+
+            case 'number':
+                const unit = question.settings?.unit || '';
+                html += `
+                    <div class="flex items-center gap-2">
+                        <input type="number" name="${inputName}" value="${savedAnswer || ''}"
+                               class="w-32 px-3 py-2 text-sm border rounded-lg health-vi-input focus:ring-2 focus:ring-purple-300"
+                               data-question-code="${question.code}"
+                               placeholder="0"
+                               ${question.validation_rules?.min ? `min="${question.validation_rules.min}"` : ''}
+                               ${question.validation_rules?.max ? `max="${question.validation_rules.max}"` : ''}
+                               ${question.validation_rules?.decimal ? `step="0.${'0'.repeat(question.validation_rules.decimal - 1)}1"` : ''}>
+                        ${unit ? `<span class="text-sm text-gray-500">${unit}</span>` : ''}
+                    </div>
+                `;
+                break;
+
+            case 'text':
+                html += `
+                    <input type="text" name="${inputName}" value="${savedAnswer || ''}"
+                           class="w-full px-3 py-2 text-sm border rounded-lg health-vi-input focus:ring-2 focus:ring-purple-300"
+                           data-question-code="${question.code}">
+                `;
+                break;
+
+            case 'textarea':
+                html += `
+                    <textarea name="${inputName}"
+                              class="w-full px-3 py-2 text-sm border rounded-lg health-vi-input focus:ring-2 focus:ring-purple-300"
+                              data-question-code="${question.code}"
+                              rows="3">${savedAnswer || ''}</textarea>
+                `;
+                break;
+
+            case 'table':
+                html += renderTableQuestionFamily(question, savedAnswer);
+                break;
+
+            case 'table_radio':
+                html += renderTableRadioQuestionFamily(question, savedAnswer);
+                break;
+
+            case 'table_checkbox':
+                html += renderTableCheckboxQuestionFamily(question, savedAnswer);
+                break;
+
+            case 'info':
+                // Just display info text
+                html += `<div class="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-800">${question.question_note || ''}</div>`;
+                break;
+
+            case 'calculated':
+                // Calculated field with SRQ score
+                html += `<div class="bg-yellow-50 border border-yellow-200 rounded p-3">
+                    <span class="text-sm font-medium">Skor Total:</span>
+                    <span id="score-${question.code}" class="text-lg font-bold text-yellow-700 ml-2">-</span>
+                </div>`;
+                break;
+        }
+
+        html += `</div>`;
+        return html;
+    }
+
+    // Render table question for family
+    function renderTableQuestionFamily(question, savedAnswer) {
+        const savedValues = typeof savedAnswer === 'object' ? savedAnswer : {};
+
+        let html = `<div class="overflow-x-auto"><table class="w-full text-sm border-collapse">`;
+        html += `<thead><tr class="bg-gray-100">
+            <th class="border px-3 py-2 text-left">Jenis Pemeriksaan</th>
+            <th class="border px-3 py-2 text-center">Hasil</th>
+            <th class="border px-3 py-2 text-left">Nilai Normal</th>
+        </tr></thead><tbody>`;
+
+        question.table_rows.forEach(row => {
+            const inputName = `health_vi[${question.code}][${row.row_code}]`;
+            const savedRowValue = savedValues[row.row_code] || '';
+            html += `
+                <tr>
+                    <td class="border px-3 py-2">${row.row_label}</td>
+                    <td class="border px-3 py-2">
+                        <input type="number" name="${inputName}" value="${savedRowValue}"
+                               class="w-24 px-2 py-1 text-sm border rounded health-vi-input"
+                               data-question-code="${question.code}"
+                               data-row-code="${row.row_code}"
+                               placeholder="0">
+                        ${row.unit ? `<span class="text-xs text-gray-500 ml-1">${row.unit}</span>` : ''}
+                    </td>
+                    <td class="border px-3 py-2 text-xs text-gray-500">${row.reference_value || '-'}</td>
+                </tr>
+            `;
+        });
+
+        html += `</tbody></table></div>`;
+        return html;
+    }
+
+    // Calculate total AKS score helper
+    function calculateAKSTotalScore(savedValues) {
+        let total = 0;
+        for (let i = 1; i <= 10; i++) {
+            const value = savedValues['aks_' + i];
+            if (value) {
+                total += parseInt(value) || 0;
+            }
+        }
+        return total;
+    }
+
+    // Get status kemandirian based on total score helper
+    function getStatusKemandirian(totalScore) {
+        if (totalScore === 20) return 'Mandiri (A) - 20';
+        if (totalScore >= 12 && totalScore <= 19) return 'Ketergantungan ringan (B) - 12 – 19';
+        if (totalScore >= 9 && totalScore <= 11) return 'Ketergantungan sedang (C) - 9 – 11';
+        if (totalScore >= 5 && totalScore <= 8) return 'Ketergantungan berat (D) - 5 – 8';
+        if (totalScore >= 0 && totalScore <= 4) return 'Ketergantungan total (E) - 0 – 4';
+        return 'Belum lengkap';
+    }
+
+    // Render table_radio question for family
+    function renderTableRadioQuestionFamily(question, savedAnswer) {
+        const savedValues = typeof savedAnswer === 'object' ? savedAnswer : {};
+
+        // Check if this is a measurement table (has numeric input) or just radio selection
+        const hasMeasurement = question.code === 'H3'; // Hasil pemeriksaan darah
+
+        let html = `<div class="overflow-x-auto"><table class="w-full text-sm border-collapse">`;
+
+        if (hasMeasurement) {
+            // Table for pemeriksaan darah with input field
+            html += `<thead><tr class="bg-gray-100">
+                <th class="border px-3 py-2 text-center w-12">No.</th>
+                <th class="border px-3 py-2 text-left">Jenis Pemeriksaan</th>
+                <th class="border px-3 py-2 text-center">Hasil Pemeriksaan</th>
+                <th class="border px-3 py-2 text-left">Nilai Rujukan</th>
+                <th class="border px-3 py-2 text-center">Pilih</th>
+            </tr></thead><tbody>`;
+
+            question.table_rows.forEach(row => {
+                const inputNameValue = `health_vi[${question.code}][${row.row_code}_value]`;
+                const inputNameChoice = `health_vi[${question.code}][${row.row_code}]`;
+                const savedValue = savedValues[row.row_code + '_value'] || '';
+                const savedChoice = savedValues[row.row_code] || '';
+
+                html += `<tr>
+                    <td class="border px-3 py-2 text-center">${row.order}</td>
+                    <td class="border px-3 py-2">${row.row_label}</td>
+                    <td class="border px-3 py-2 text-center">
+                        <input type="number" name="${inputNameValue}" value="${savedValue}"
+                               class="w-32 px-2 py-1 text-sm border rounded health-vi-input"
+                               data-question-code="${question.code}"
+                               data-row-code="${row.row_code}_value"
+                               placeholder="0" step="0.1">
+                        <span class="text-xs text-gray-500 ml-1">mg/dl</span>
+                    </td>
+                    <td class="border px-3 py-2 text-xs text-gray-600">${row.reference_value || row.unit || ''}</td>
+                    <td class="border px-3 py-2">
+                        <div class="flex flex-col gap-1">`;
+
+                // Radio buttons for each option
+                question.options.forEach(opt => {
+                    const checked = String(savedChoice) === String(opt.value) ? 'checked' : '';
+                    html += `
+                        <label class="flex items-center gap-1 cursor-pointer hover:bg-gray-50 px-1 py-0.5 rounded">
+                            <input type="radio" name="${inputNameChoice}" value="${opt.value}"
+                                   class="w-3 h-3 text-purple-500 health-vi-input"
+                                   data-question-code="${question.code}"
+                                   data-row-code="${row.row_code}"
+                                   ${checked}>
+                            <span class="text-xs">${opt.label}</span>
+                        </label>
+                    `;
+                });
+
+                html += `    </div>
+                    </td>
+                </tr>`;
+            });
+        } else {
+            // Simple table with just radio options (e.g., AKS)
+            html += `<thead><tr class="bg-gray-100">
+                <th class="border px-3 py-2 text-left">FUNGSI</th>
+                <th class="border px-3 py-2 text-center">SKOR</th>
+                <th class="border px-3 py-2 text-left">KETERANGAN</th>
+                <th class="border px-3 py-2 text-center">HASIL</th>
+            </tr></thead><tbody>`;
+
+            question.table_rows.forEach((row, idx) => {
+                const inputName = `health_vi[${question.code}][${row.row_code}]`;
+                const savedValue = savedValues[row.row_code] || '';
+
+                // Parse note to show KETERANGAN details and count how many scores exist
+                const keteranganParts = row.note ? row.note.split('|') : [];
+                const keterangan = keteranganParts.map((text, i) => {
+                    return `<div class="mb-1"><strong>${i}:</strong> ${text.trim()}</div>`;
+                }).join('');
+
+                // Only show options up to the number of keterangan entries
+                const maxScore = keteranganParts.length;
+                const availableOptions = question.options.filter((opt, i) => i < maxScore);
+                const skorLabels = availableOptions.map(o => o.label).join(', ');
+
+                html += `<tr>
+                    <td class="border px-3 py-2 align-top">${idx + 1}. ${row.row_label}</td>
+                    <td class="border px-3 py-2 text-center text-xs text-gray-600 align-top">${skorLabels}</td>
+                    <td class="border px-3 py-2 text-xs text-gray-600 align-top">${keterangan}</td>
+                    <td class="border px-3 py-2 align-top">
+                        <div class="flex gap-2 justify-center flex-wrap">`;
+
+                // Radio buttons only for available options based on keterangan count
+                availableOptions.forEach(opt => {
+                    const checked = String(savedValue) === String(opt.value) ? 'checked' : '';
+                    html += `
+                        <label class="flex items-center gap-1 cursor-pointer hover:bg-gray-50 px-2 py-1 rounded">
+                            <input type="radio" name="${inputName}" value="${opt.value}"
+                                   class="w-4 h-4 text-purple-500 health-vi-input aks-score-radio"
+                                   data-question-code="${question.code}"
+                                   data-row-code="${row.row_code}"
+                                   ${checked}>
+                            <span class="text-sm font-medium">${opt.label}</span>
+                        </label>
+                    `;
+                });
+
+                html += `    </div>
+                    </td>
+                </tr>`;
+            });
+
+            // Add total score and status kemandirian row for H4 (AKS)
+            if (question.code === 'H4') {
+                const totalScore = calculateAKSTotalScore(savedValues);
+                const status = getStatusKemandirian(totalScore);
+
+                html += `
+                <tr class="bg-blue-50 font-bold">
+                    <td colspan="3" class="border px-3 py-2 text-right">TOTAL SKOR:</td>
+                    <td class="border px-3 py-2 text-center">
+                        <span id="aks-total-score" class="text-lg text-blue-600">${totalScore}</span>
+                    </td>
+                </tr>
+                <tr class="bg-green-50 font-bold">
+                    <td colspan="3" class="border px-3 py-2 text-right">STATUS KEMANDIRIAN LANSIA:</td>
+                    <td class="border px-3 py-2 text-center">
+                        <span id="aks-status" class="text-lg text-green-600">${status}</span>
+                        <input type="hidden" name="health_vi[H5][status]" id="aks-status-input" value="${status}">
+                    </td>
+                </tr>`;
+            }
+        }
+
+        html += `</tbody></table></div>`;
+        return html;
+    }
+
+    // Render table_checkbox question for family (SKILAS)
+    function renderTableCheckboxQuestionFamily(question, savedAnswer) {
+        const savedValues = typeof savedAnswer === 'object' ? savedAnswer : {};
+
+        let html = `<div class="overflow-x-auto"><table class="w-full text-sm border-collapse">`;
+        html += `<thead><tr class="bg-gray-100">
+            <th class="border px-3 py-2 text-left">Kondisi prioritas terkait penurunan kapasitas intrinsik</th>
+            <th class="border px-3 py-2 text-left">Pertanyaan</th>
+            <th class="border px-3 py-2 text-center">Hasil (berikan tanda centang sesuai hasil pemeriksaan)</th>
+        </tr></thead><tbody>`;
+
+        question.table_rows.forEach(row => {
+            const inputName = `health_vi[${question.code}][${row.row_code}]`;
+            const savedValue = savedValues[row.row_code] || '';
+
+            let resultCell = '';
+
+            // Check row type
+            if (row.input_type === 'text') {
+                // Header row - no input, just display text
+                resultCell = '';
+            } else if (row.reference_value && row.reference_value.includes('|')) {
+                // Radio options from reference_value
+                const options = row.reference_value.split('|');
+                resultCell = '<div class="flex flex-col gap-2">';
+                options.forEach((opt, idx) => {
+                    const optValue = opt.trim();
+                    const checked = String(savedValue) === String(optValue) ? 'checked' : '';
+                    resultCell += `
+                        <label class="flex items-start gap-2 cursor-pointer hover:bg-gray-50 px-2 py-1 rounded">
+                            <input type="radio" name="${inputName}" value="${optValue}"
+                                   class="mt-1 w-4 h-4 text-purple-500 health-vi-input"
+                                   data-question-code="${question.code}"
+                                   data-row-code="${row.row_code}"
+                                   ${checked}>
+                            <span class="text-xs flex-1">${optValue}</span>
+                        </label>
+                    `;
+                });
+                resultCell += '</div>';
+            } else if (row.reference_value) {
+                // Checkbox with label from reference_value
+                const checked = savedValue === 'ya' ? 'checked' : '';
+                resultCell = `
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" name="${inputName}" value="ya"
+                               class="w-4 h-4 text-purple-500 health-vi-input"
+                               data-question-code="${question.code}"
+                               data-row-code="${row.row_code}"
+                               ${checked}>
+                        <span class="text-xs">${row.reference_value}</span>
+                    </div>
+                `;
+            } else {
+                // Simple checkbox without label
+                const checked = savedValue === 'ya' ? 'checked' : '';
+                resultCell = `
+                    <input type="checkbox" name="${inputName}" value="ya"
+                           class="w-4 h-4 text-purple-500 health-vi-input"
+                           data-question-code="${question.code}"
+                           data-row-code="${row.row_code}"
+                           ${checked}>
+                `;
+            }
+
+            html += `
+                <tr>
+                    <td class="border px-3 py-2 align-top">${row.row_label}</td>
+                    <td class="border px-3 py-2 text-xs text-gray-600 align-top">${row.note || ''}</td>
+                    <td class="border px-3 py-2 text-center align-top">${resultCell}</td>
+                </tr>
+            `;
+        });
+
+        html += `</tbody></table></div>`;
+        return html;
+    }
+
+    // Setup event listeners for Section VI
+    function setupSectionVIListeners() {
+        const container = document.getElementById('section-vi-questions');
+        if (!container) {
+            console.warn('⚠️ section-vi-questions container not found for listeners');
+            return;
+        }
+
+        const inputs = container.querySelectorAll('.health-vi-input');
+        console.log(`🎯 Setting up listeners for ${inputs.length} Section VI inputs`);
+
+        inputs.forEach(input => {
+            const eventType = input.type === 'radio' || input.type === 'checkbox' ? 'change' : 'input';
+
+            // Update saved answers and check conditionals
+            input.addEventListener('change', function() {
+                const questionCode = this.dataset.questionCode;
+                const value = this.type === 'checkbox'
+                    ? Array.from(container.querySelectorAll(`input[data-question-code="${questionCode}"]:checked`)).map(cb => cb.value)
+                    : this.value;
+
+                console.log(`📝 Answer changed for ${questionCode}:`, value);
+                savedSectionVIAnswers[questionCode] = value;
+                updateConditionalQuestionsFamily();
+
+                // Calculate AKS total if it's an AKS question
+                if (this.classList.contains('aks-score-radio')) {
+                    calculateAndUpdateAKSTotal();
+                }
+
+                // Calculate SRQ score if applicable
+                calculateSRQScore();
+            });
+
+            // Auto-save on change
+            input.addEventListener(eventType, debounce(function() {
+                console.log('💾 Triggering auto-save...');
+                autoSaveSectionVIDataFamily();
+            }, 500));
+        });
+
+        console.log('✅ Section VI listeners setup complete');
+    }
+
+    // Update visibility of conditional questions for family
+    function updateConditionalQuestionsFamily() {
+        const container = document.getElementById('section-vi-questions');
+        if (!container) return;
+
+        healthQuestionsData.forEach(category => {
+            category.questions.forEach(question => {
+                if (question.show_conditions?.depends_on) {
+                    const questionDiv = container.querySelector(`[data-question-code="${question.code}"]`);
+                    if (questionDiv) {
+                        const shouldShow = questionShouldShowFamily(question, savedSectionVIAnswers);
+                        questionDiv.style.display = shouldShow ? 'block' : 'none';
+                    }
+                }
+            });
+        });
+    }
+
+    // Calculate and update AKS total score and status
+    function calculateAndUpdateAKSTotal() {
+        let totalScore = 0;
+
+        // Sum all AKS scores (aks_1 to aks_10)
+        for (let i = 1; i <= 10; i++) {
+            const aksCode = `aks_${i}`;
+            const checkedRadio = document.querySelector(`input[data-row-code="${aksCode}"]:checked`);
+            if (checkedRadio) {
+                totalScore += parseInt(checkedRadio.value) || 0;
+            }
+        }
+
+        // Update total score display
+        const totalDisplay = document.getElementById('aks-total-score');
+        if (totalDisplay) {
+            totalDisplay.textContent = totalScore;
+        }
+
+        // Determine status
+        let status = 'Belum lengkap';
+        if (totalScore === 20) status = 'Mandiri (A) - 20';
+        else if (totalScore >= 12 && totalScore <= 19) status = 'Ketergantungan ringan (B) - 12 – 19';
+        else if (totalScore >= 9 && totalScore <= 11) status = 'Ketergantungan sedang (C) - 9 – 11';
+        else if (totalScore >= 5 && totalScore <= 8) status = 'Ketergantungan berat (D) - 5 – 8';
+        else if (totalScore >= 0 && totalScore <= 4) status = 'Ketergantungan total (E) - 0 – 4';
+
+        // Update status display
+        const statusDisplay = document.getElementById('aks-status');
+        if (statusDisplay) {
+            statusDisplay.textContent = status;
+        }
+
+        // Update hidden input for saving
+        const statusInput = document.getElementById('aks-status-input');
+        if (statusInput) {
+            statusInput.value = status;
+        }
+
+        console.log(`🧮 AKS Total Score: ${totalScore} - Status: ${status}`);
+    }
+
+    // Calculate SRQ-20 score
+    function calculateSRQScore() {
+        const container = document.getElementById('section-vi-questions');
+        if (!container) return;
+
+        // Count all SRQ questions answered with '1' (Ya)
+        let score = 0;
+        const srqQuestions = container.querySelectorAll('[data-question-code^="srq_"]:not([data-question-code="srq_total"])');
+        srqQuestions.forEach(div => {
+            const checkedInput = div.querySelector('input[type="radio"]:checked');
+            if (checkedInput && checkedInput.value === '1') {
+                score++;
+            }
+        });
+
+        // Update score display
+        const scoreDisplay = container.querySelector('#score-srq_total');
+        if (scoreDisplay) {
+            scoreDisplay.textContent = score;
+            // Change color based on score threshold (>= 6 is concerning)
+            if (score >= 6) {
+                scoreDisplay.className = 'text-lg font-bold text-red-600 ml-2';
+            } else {
+                scoreDisplay.className = 'text-lg font-bold text-green-600 ml-2';
+            }
+        }
+    }
+
+    // Auto-save Section VI data for family
+    function autoSaveSectionVIDataFamily() {
+        const container = document.getElementById('section-vi-questions');
+        if (!container) {
+            console.warn('⚠️ Container not found for auto-save');
+            return;
+        }
+
+        // Collect all answers
+        const healthData = {};
+
+        container.querySelectorAll('.health-vi-input').forEach(input => {
+            const code = input.dataset.questionCode;
+            const rowCode = input.dataset.rowCode;
+
+            if (input.type === 'radio' && input.checked) {
+                healthData[code] = input.value;
+            } else if (input.type === 'checkbox' && input.checked) {
+                if (!healthData[code]) healthData[code] = [];
+                healthData[code].push(input.value);
+            } else if (input.type !== 'radio' && input.type !== 'checkbox') {
+                if (rowCode) {
+                    if (!healthData[code]) healthData[code] = {};
+                    healthData[code][rowCode] = input.value;
+                } else {
+                    healthData[code] = input.value;
+                }
+            }
+        });
+
+        console.log('💾 Auto-saving Section VI data for family', healthData);
+        console.log('💾 Response ID:', responseId);
+
+        // Send to server
+        const formData = new FormData();
+        formData.append('_token', '{{ csrf_token() }}');
+        formData.append('response_id', responseId);
+        formData.append('section_vi_data', JSON.stringify(healthData));
+
+        fetch('{{ route("questionnaire.save-health-vi", $questionnaire->id) }}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('💾 Save response:', data);
+            if (data.success) {
+                console.log('✅ Section VI data saved successfully');
+                showSaveIndicator();
+            } else {
+                console.error('❌ Save failed:', data.message);
+            }
+        })
+        .catch(error => {
+            console.error('❌ Error saving Section VI:', error);
+        });
+    }
+
+    // Show save indicator
+    function showSaveIndicator() {
+        const header = document.querySelector('#section-vi-container .text-white h3');
+        if (header) {
+            let indicator = header.querySelector('.save-indicator');
+            if (!indicator) {
+                indicator = document.createElement('span');
+                indicator.className = 'save-indicator text-sm font-normal bg-green-400 text-white px-2 py-1 rounded ml-2';
+            }
+            indicator.textContent = '✓ Tersimpan';
+            header.appendChild(indicator);
+            setTimeout(() => indicator.remove(), 2000);
+        }
+    }
+
+    // Initialize Section VI
+    async function initSectionVI() {
+        const container = document.getElementById('section-vi-container');
+        const loading = document.getElementById('section-vi-loading');
+
+        if (!container) return;
+
+        // Load health questions
+        await loadHealthQuestions();
+
+        if (healthQuestionsData.length === 0) {
+            loading.innerHTML = `
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-yellow-800">
+                    <p>Tidak ada pertanyaan tambahan untuk kuesioner ini.</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Render Section VI questions for family
+        renderSectionVI();
+    }
+
+    // Toggle Section V visibility
+    window.toggleSectionV = function() {
+        const content = document.getElementById('section-v-content');
+        const arrow = document.getElementById('section-v-arrow');
+        if (content.style.display === 'none') {
+            content.style.display = 'block';
+            arrow.style.transform = 'rotate(0deg)';
+        } else {
+            content.style.display = 'none';
+            arrow.style.transform = 'rotate(-90deg)';
+        }
+    };
+
+    // Toggle Section VI visibility
+    window.toggleSectionVI = function() {
+        const content = document.getElementById('section-vi-content');
+        const arrow = document.getElementById('section-vi-arrow');
+        if (content.style.display === 'none') {
+            content.style.display = 'block';
+            arrow.style.transform = 'rotate(0deg)';
+        } else {
+            content.style.display = 'none';
+            arrow.style.transform = 'rotate(-90deg)';
+        }
+    };
+
+    // Initialize Section VI when page loads
+    initSectionVI();
 });
 </script>
 @endpush
