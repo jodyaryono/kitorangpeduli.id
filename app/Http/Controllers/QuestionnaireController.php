@@ -247,10 +247,27 @@ class QuestionnaireController extends Controller
             foreach ($familyHealthResponses as $code => $healthResponse) {
                 // Try to decode JSON answers (for checkbox/table types)
                 $answer = $healthResponse->answer;
+                
+                // Clean the answer to prevent JavaScript syntax errors
+                if (is_string($answer)) {
+                    // Remove any potential problematic characters
+                    $answer = str_replace(["\r\n", "\r", "\n"], ' ', $answer);
+                }
+                
                 $decoded = json_decode($answer, true);
                 $savedSectionVIData[$code] = (json_last_error() === JSON_ERROR_NONE) ? $decoded : $answer;
             }
         }
+
+        // Ensure all data is JSON-safe
+        $savedResidents = collect($savedResidents)->map(function($resident) {
+            if (is_array($resident) || is_object($resident)) {
+                return collect($resident)->map(function($value) {
+                    return is_string($value) ? str_replace(["\r\n", "\r", "\n"], ' ', $value) : $value;
+                })->toArray();
+            }
+            return $resident;
+        })->toArray();
 
         return view('questionnaire.fill', compact('questionnaire', 'response', 'existingAnswers', 'isOfficerAssisted', 'respondentData', 'actualQuestions', 'savedResidents', 'savedHealthData', 'savedSectionVIData', 'savedFamily'));
     }
