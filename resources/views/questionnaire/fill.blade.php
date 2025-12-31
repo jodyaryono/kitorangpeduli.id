@@ -2504,12 +2504,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 choicesInstances[select.id].destroy();
             }
 
-                    searchPlaceholderValue: 'Ketik untuk mencari...',
-                    noResultsText: 'Tidak ada hasil',
-                    itemSelectText: 'Tekan untuk memilih',
-                    removeItemButton: false,
-                    shouldSort: false
-                });
+            // Reinitialize Choices
+            choicesInstances[select.id] = new Choices(select, {
+                searchEnabled: true,
+                searchPlaceholderValue: 'Ketik untuk mencari...',
+                noResultsText: 'Tidak ada hasil',
+                itemSelectText: 'Tekan untuk memilih',
+                removeItemButton: false,
+                shouldSort: false
+            });
 
                 // Restore saved value if exists
                 if (savedValue) {
