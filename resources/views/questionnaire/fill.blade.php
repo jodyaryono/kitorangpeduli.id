@@ -2499,9 +2499,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     select.appendChild(option);
                 });
 
-                // Reinitialize Choices
-                choicesInstances[select.id] = new Choices(select, {
-                    searchEnabled: true,
+            // Destroy existing Choices instance if it exists
+            if (choicesInstances[select.id]) {
+                choicesInstances[select.id].destroy();
+            }
+
                     searchPlaceholderValue: 'Ketik untuk mencari...',
                     noResultsText: 'Tidak ada hasil',
                     itemSelectText: 'Tekan untuk memilih',
@@ -2557,9 +2559,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 regencySelect.appendChild(option);
             });
 
-            // Reinitialize Choices
-            choicesInstances[regencySelect.id] = new Choices(regencySelect, {
-                searchEnabled: true,
+        // Destroy existing Choices instance if it exists
+        if (choicesInstances[regencySelect.id]) {
+            choicesInstances[regencySelect.id].destroy();
+        }
+
                 searchPlaceholderValue: 'Ketik untuk mencari...',
                 noResultsText: 'Tidak ada hasil',
                 itemSelectText: 'Tekan untuk memilih',
@@ -2654,9 +2658,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 districtSelect.appendChild(option);
             });
 
-            // Reinitialize Choices
-            choicesInstances[districtSelect.id] = new Choices(districtSelect, {
-                searchEnabled: true,
+        // Destroy existing Choices instance if it exists
+        if (choicesInstances[districtSelect.id]) {
+            choicesInstances[districtSelect.id].destroy();
+        }
+
                 searchPlaceholderValue: 'Ketik untuk mencari...',
                 noResultsText: 'Tidak ada hasil',
                 itemSelectText: 'Tekan untuk memilih',
@@ -2747,9 +2753,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 villageSelect.appendChild(option);
             });
 
-            // Reinitialize Choices
-            choicesInstances[villageSelect.id] = new Choices(villageSelect, {
-                searchEnabled: true,
+        // Destroy existing Choices instance if it exists
+        if (choicesInstances[villageSelect.id]) {
+            choicesInstances[villageSelect.id].destroy();
+        }
+
                 searchPlaceholderValue: 'Ketik untuk mencari...',
                 noResultsText: 'Tidak ada hasil',
                 itemSelectText: 'Tekan untuk memilih',
