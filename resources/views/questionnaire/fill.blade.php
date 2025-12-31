@@ -2567,12 +2567,15 @@ document.addEventListener('DOMContentLoaded', function() {
             choicesInstances[regencySelect.id].destroy();
         }
 
-                searchPlaceholderValue: 'Ketik untuk mencari...',
-                noResultsText: 'Tidak ada hasil',
-                itemSelectText: 'Tekan untuk memilih',
-                removeItemButton: false,
-                shouldSort: false
-            });
+        // Reinitialize Choices
+        choicesInstances[regencySelect.id] = new Choices(regencySelect, {
+            searchEnabled: true,
+            searchPlaceholderValue: 'Ketik untuk mencari...',
+            noResultsText: 'Tidak ada hasil',
+            itemSelectText: 'Tekan untuk memilih',
+            removeItemButton: false,
+            shouldSort: false
+        });
 
             // Restore saved value if exists
             if (savedValue) {
@@ -2666,12 +2669,15 @@ document.addEventListener('DOMContentLoaded', function() {
             choicesInstances[districtSelect.id].destroy();
         }
 
-                searchPlaceholderValue: 'Ketik untuk mencari...',
-                noResultsText: 'Tidak ada hasil',
-                itemSelectText: 'Tekan untuk memilih',
-                removeItemButton: false,
-                shouldSort: false
-            });
+        // Reinitialize Choices
+        choicesInstances[districtSelect.id] = new Choices(districtSelect, {
+            searchEnabled: true,
+            searchPlaceholderValue: 'Ketik untuk mencari...',
+            noResultsText: 'Tidak ada hasil',
+            itemSelectText: 'Tekan untuk memilih',
+            removeItemButton: false,
+            shouldSort: false
+        });
 
             // Restore saved value if exists
             if (savedValue) {
@@ -2761,12 +2767,15 @@ document.addEventListener('DOMContentLoaded', function() {
             choicesInstances[villageSelect.id].destroy();
         }
 
-                searchPlaceholderValue: 'Ketik untuk mencari...',
-                noResultsText: 'Tidak ada hasil',
-                itemSelectText: 'Tekan untuk memilih',
-                removeItemButton: false,
-                shouldSort: false
-            });
+        // Reinitialize Choices
+        choicesInstances[villageSelect.id] = new Choices(villageSelect, {
+            searchEnabled: true,
+            searchPlaceholderValue: 'Ketik untuk mencari...',
+            noResultsText: 'Tidak ada hasil',
+            itemSelectText: 'Tekan untuk memilih',
+            removeItemButton: false,
+            shouldSort: false
+        });
 
             // Restore saved value if exists
             if (savedValue) {
