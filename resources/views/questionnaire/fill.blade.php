@@ -632,17 +632,26 @@
                                                 @case('file')
                                                     @php
                                                         $hasExistingFile = $existingAnswer && $existingAnswer->media_path;
-
-                                                        // Check if this is KK upload and we have savedFamily data
+                                                        
+                                                        // Check if this is KK upload
                                                         $questionText = strtolower($question->question_text);
                                                         $isFamilyKKUpload = str_contains($questionText, 'kartu keluarga') || str_contains($questionText, 'upload kk');
-
-                                                        if (!$hasExistingFile && $isFamilyKKUpload && isset($savedFamily['kk_image_path']) && $savedFamily['kk_image_path']) {
+                                                        
+                                                        // Priority: 1. existingAnswer->media_path, 2. savedFamily['kk_image_path']
+                                                        $existingFilePath = null;
+                                                        if ($hasExistingFile && $existingAnswer->media_path) {
+                                                            // Use answer's media_path first (freshly uploaded)
+                                                            $existingFilePath = $existingAnswer->media_path;
+                                                        } elseif ($isFamilyKKUpload && isset($savedFamily['kk_image_path']) && $savedFamily['kk_image_path']) {
+                                                            // Fallback to family's kk_image_path
+                                                            $existingFilePath = $savedFamily['kk_image_path'];
                                                             $hasExistingFile = true;
-                                                            $existingKKPath = $savedFamily['kk_image_path'];
-                                                        } else {
-                                                            $existingKKPath = null;
                                                         }
+                                                        
+                                                        // Keep existingKKPath for backward compatibility in template
+                                                        $existingKKPath = ($isFamilyKKUpload && !($existingAnswer && $existingAnswer->media_path) && isset($savedFamily['kk_image_path'])) 
+                                                            ? $savedFamily['kk_image_path'] 
+                                                            : null;
                                                     @endphp
                                                     <div class="file-upload-container" data-question-id="{{ $question->id }}">
                                                         <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-yellow-400 transition cursor-pointer file-upload-area" id="fileUploadArea_{{ $question->id }}">
@@ -661,25 +670,15 @@
                                                             </div>
                                                             <div class="file-preview {{ $hasExistingFile ? '' : 'hidden' }}" id="filePreview_{{ $question->id }}">
                                                                 <div class="preview-content mb-3" id="filePreviewContent_{{ $question->id }}">
-                                                                    @if($existingKKPath)
+                                                                    @if($existingFilePath)
                                                                         @php
-                                                                            $fileExt = pathinfo($existingKKPath, PATHINFO_EXTENSION);
+                                                                            $fileExt = pathinfo($existingFilePath, PATHINFO_EXTENSION);
                                                                         @endphp
                                                                         @if(in_array(strtolower($fileExt), ['jpg', 'jpeg', 'png', 'gif']))
-                                                                            <img src="{{ asset('storage/' . $existingKKPath) }}" alt="Kartu Keluarga" class="max-h-64 mx-auto rounded-lg">
-                                                                        @else
-                                                                            <div class="text-6xl">📄</div>
-                                                                            <p class="text-sm text-gray-600 mt-2">Kartu Keluarga</p>
-                                                                        @endif
-                                                                    @elseif($hasExistingFile && $existingAnswer)
-                                                                        @php
-                                                                            $fileExt = pathinfo($existingAnswer->media_path, PATHINFO_EXTENSION);
-                                                                        @endphp
-                                                                        @if(in_array(strtolower($fileExt), ['jpg', 'jpeg', 'png', 'gif']))
-                                                                            <img src="{{ asset('storage/' . $existingAnswer->media_path) }}" alt="Preview" class="max-h-64 mx-auto rounded-lg">
+                                                                            <img src="{{ asset('storage/' . $existingFilePath) }}" alt="{{ $isFamilyKKUpload ? 'Kartu Keluarga' : 'Preview' }}" class="max-h-64 mx-auto rounded-lg">
                                                                         @elseif(strtolower($fileExt) === 'pdf')
                                                                             <div class="text-6xl">📄</div>
-                                                                            <p class="text-sm text-gray-600 mt-2">File PDF</p>
+                                                                            <p class="text-sm text-gray-600 mt-2">{{ $isFamilyKKUpload ? 'Kartu Keluarga' : 'File PDF' }}</p>
                                                                         @else
                                                                             <div class="text-6xl">📎</div>
                                                                             <p class="text-sm text-gray-600 mt-2">File {{ strtoupper($fileExt) }}</p>
@@ -687,10 +686,8 @@
                                                                     @endif
                                                                 </div>
                                                                 <p class="text-sm text-gray-600 mb-2" id="fileFileName_{{ $question->id }}">
-                                                                    @if($existingKKPath)
-                                                                        📎 Kartu Keluarga (sudah diupload)
-                                                                    @else
-                                                                        {{ $hasExistingFile && $existingAnswer ? '📎 ' . ($existingAnswer->answer_text ?? 'Uploaded File') : '' }}
+                                                                    @if($existingFilePath)
+                                                                        📎 {{ $isFamilyKKUpload ? 'Kartu Keluarga (sudah diupload)' : ($existingAnswer->answer_text ?? 'Uploaded File') }}
                                                                     @endif
                                                                 </p>
                                                                 <button type="button" class="change-file-btn text-yellow-600 text-sm font-medium hover:text-yellow-700" data-question-id="{{ $question->id }}">
