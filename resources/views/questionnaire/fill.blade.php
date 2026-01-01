@@ -63,10 +63,6 @@
                 </svg>
                 <span class="font-medium">Kembali</span>
             </a>
-            <div class="text-right">
-                <div class="text-sm font-bold text-yellow-600" id="stickyQuestionCounter">1-10</div>
-                <div class="text-xs text-gray-500">dari {{ $actualQuestions->count() }}</div>
-            </div>
         </div>
     </div>
 </div>
@@ -76,17 +72,11 @@
         <!-- Header -->
         <div class="bg-white rounded-2xl shadow-lg overflow-hidden mb-6 border-t-4 border-yellow-500">
             <div class="papua-gradient px-8 py-6">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <span class="bg-yellow-500 text-black text-xs font-bold px-3 py-1 rounded-full">
-                            {{ $questionnaire->opd->nama ?? 'Survey Umum' }}
-                        </span>
-                        <h1 class="text-2xl font-bold text-yellow-400 mt-2">{{ $questionnaire->title }}</h1>
-                    </div>
-                    <div class="text-right text-white">
-                        <div class="text-3xl font-bold text-yellow-400" id="questionCounter">1</div>
-                        <div class="text-sm text-gray-400">dari {{ $actualQuestions->count() }}</div>
-                    </div>
+                <div>
+                    <span class="bg-yellow-500 text-black text-xs font-bold px-3 py-1 rounded-full">
+                        {{ $questionnaire->opd->nama ?? 'Survey Umum' }}
+                    </span>
+                    <h1 class="text-2xl font-bold text-yellow-400 mt-2">{{ $questionnaire->title }}</h1>
                 </div>
             </div>
             @if($questionnaire->description)
@@ -1063,11 +1053,6 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 
     const submitBtn = document.getElementById('submitBtn');
-    const questionCounter = document.getElementById('questionCounter');
-
-    // Set initial counter (total questions)
-    questionCounter.textContent = '1-' + {{ $actualQuestions->count() }};
-    document.getElementById('stickyQuestionCounter').textContent = '1-' + {{ $actualQuestions->count() }};
 
     // Validate Nomor KK (16 digit)
     document.addEventListener('input', function(e) {
