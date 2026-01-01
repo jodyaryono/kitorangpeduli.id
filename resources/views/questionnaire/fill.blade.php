@@ -1541,7 +1541,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <td class="border px-2 py-2 text-center">${umur}</td>
                 <td class="border px-2 py-2 text-center">
                     <div class="flex gap-1 justify-center flex-wrap">
-                        <button type="button" onclick="selectMemberForHealth(${memberId})" class="px-2 py-1 bg-green-500 text-white rounded text-xs hover:bg-green-600" title="Pilih untuk pertanyaan kesehatan V">V</button>
+                        <button type="button" onclick="selectMemberForHealth(${memberId})" class="px-2 py-1 bg-green-500 text-white rounded text-xs hover:bg-green-600" title="Pilih untuk pertanyaan kesehatan">Pilih</button>
                         <button type="button" onclick="editFamilyMemberModal(${memberId})" class="px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600">Edit</button>
                         <button type="button" onclick="deleteFamilyMember(${memberId})" class="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600">Hapus</button>
                     </div>
