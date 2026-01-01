@@ -3522,12 +3522,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Upload file to server
     function uploadFileToServer(file, questionId, fileType) {
-        console.log('uploadFileToServer called:', { file: file.name, questionId, fileType });
+        console.log('uploadFileToServer called:', { file: file.name, questionId, fileType, responseId });
 
         const formData = new FormData();
         formData.append('question_id', questionId);
         formData.append('file', file);
         formData.append('file_type', fileType);
+        formData.append('response_id', responseId); // CRITICAL: Send response_id to ensure correct response is updated
 
         console.log('Sending to:', '{{ route("questionnaire.autosave", $questionnaire->id) }}');
         console.log('FormData entries:');
