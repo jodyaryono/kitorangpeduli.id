@@ -52,6 +52,29 @@ foreach ($kkAnswers as $answer) {
         }
     }
     
+    // Try to find family by user_id -> residents -> family
+    if (!$family && $response->user_id) {
+        $resident = \App\Models\Resident::where('phone', function($q) use ($response) {
+            $q->select('phone')->from('users')->where('id', $response->user_id);
+        })->first();
+        if ($resident && $resident->family_id) {
+            $family = Family::find($resident->family_id);
+            if ($family) {
+                echo "  Found family via user: {$family->id}\n";
+            }
+        }
+    }
+    
+    // If still no family, try to get the latest family without kk_image_path
+    if (!$family) {
+        $family = Family::whereNull('kk_image_path')
+            ->orderBy('id', 'desc')
+            ->first();
+        if ($family) {
+            echo "  Found latest family without kk_image: {$family->id}\n";
+        }
+    }
+    
     if ($family) {
         $oldPath = $family->kk_image_path;
         $family->update(['kk_image_path' => $answer->media_path]);
