@@ -903,6 +903,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const responseId = {{ $response->id }};
     let autoSaveTimeout = null;
 
+    // Track answered questions and total questions
+    const answeredQuestions = new Set();
+    const totalQuestions = {{ $actualQuestions->count() }};
+
     // Saved family members data from residents table (not from responses.family_members JSON)
     let savedFamilyMembers = {};
 
@@ -1093,7 +1097,26 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Cek jawaban yang sudah ada
     function checkExistingAnswers() {
-        // No longer tracking progress
+        // Track answered questions for progress calculation
+        document.querySelectorAll('.answer-input').forEach(input => {
+            const questionId = input.getAttribute('data-question-id');
+            if (!questionId) return;
+
+            // Check if the input has a value
+            if (input.type === 'radio' || input.type === 'checkbox') {
+                if (input.checked) {
+                    answeredQuestions.add(questionId);
+                }
+            } else if (input.tagName === 'SELECT') {
+                if (input.value) {
+                    answeredQuestions.add(questionId);
+                }
+            } else if (input.tagName === 'INPUT' || input.tagName === 'TEXTAREA') {
+                if (input.value && input.value.trim() !== '') {
+                    answeredQuestions.add(questionId);
+                }
+            }
+        });
     }
 
     // Auto-save function
@@ -1149,17 +1172,28 @@ document.addEventListener('DOMContentLoaded', function() {
             input.addEventListener('change', function() {
                 // For radio, get the value
                 if (this.type === 'radio') {
+                    answeredQuestions.add(questionId); // Track answered
                     autoSave(questionId, this.value, true); // Save immediately
                 } else if (this.type === 'checkbox') {
                     // For checkbox, collect all checked values
                     const checkedValues = Array.from(document.querySelectorAll(`input[data-question-id="${questionId}"]:checked`))
                         .map(cb => cb.value);
+                    if (checkedValues.length > 0) {
+                        answeredQuestions.add(questionId); // Track answered
+                    } else {
+                        answeredQuestions.delete(questionId); // Remove if unchecked
+                    }
                     autoSave(questionId, JSON.stringify(checkedValues), true); // Save immediately
                 }
             });
         } else {
             // For text inputs and textareas
             input.addEventListener('input', function() {
+                if (this.value && this.value.trim() !== '') {
+                    answeredQuestions.add(questionId); // Track answered
+                } else {
+                    answeredQuestions.delete(questionId); // Remove if empty
+                }
                 autoSave(questionId, this.value, false); // Delay for text inputs
             });
         }
@@ -1171,6 +1205,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!questionId) return;
 
         select.addEventListener('change', function() {
+            if (this.value) {
+                answeredQuestions.add(questionId); // Track answered
+            } else {
+                answeredQuestions.delete(questionId); // Remove if empty
+            }
             autoSave(questionId, this.value, true); // Save immediately on change
 
         });

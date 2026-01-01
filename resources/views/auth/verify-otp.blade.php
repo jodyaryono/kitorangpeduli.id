@@ -13,7 +13,7 @@
 
             <div class="p-8">
                 <div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-6">
-                    <p class="text-sm">Kode OTP telah dikirim ke <strong>+62{{ $no_hp }}</strong></p>
+                    <p class="text-sm">Kode OTP telah dikirim ke <strong>+{{ $no_hp }}</strong></p>
                 </div>
 
                 @if($errors->any())
