@@ -632,25 +632,34 @@
                                                 @case('file')
                                                     @php
                                                         $hasExistingFile = $existingAnswer && $existingAnswer->media_path;
-                                                        
+
                                                         // Check if this is KK upload
                                                         $questionText = strtolower($question->question_text);
                                                         $isFamilyKKUpload = str_contains($questionText, 'kartu keluarga') || str_contains($questionText, 'upload kk');
-                                                        
+
                                                         // Priority: 1. existingAnswer->media_path, 2. savedFamily['kk_image_path']
+                                                        // But only if file actually exists on disk
                                                         $existingFilePath = null;
                                                         if ($hasExistingFile && $existingAnswer->media_path) {
                                                             // Use answer's media_path first (freshly uploaded)
-                                                            $existingFilePath = $existingAnswer->media_path;
+                                                            $candidatePath = $existingAnswer->media_path;
+                                                            if (file_exists(storage_path('app/public/' . $candidatePath))) {
+                                                                $existingFilePath = $candidatePath;
+                                                            } else {
+                                                                $hasExistingFile = false;
+                                                            }
                                                         } elseif ($isFamilyKKUpload && isset($savedFamily['kk_image_path']) && $savedFamily['kk_image_path']) {
-                                                            // Fallback to family's kk_image_path
-                                                            $existingFilePath = $savedFamily['kk_image_path'];
-                                                            $hasExistingFile = true;
+                                                            // Fallback to family's kk_image_path, but verify file exists
+                                                            $candidatePath = $savedFamily['kk_image_path'];
+                                                            if (file_exists(storage_path('app/public/' . $candidatePath))) {
+                                                                $existingFilePath = $candidatePath;
+                                                                $hasExistingFile = true;
+                                                            }
                                                         }
-                                                        
+
                                                         // Keep existingKKPath for backward compatibility in template
-                                                        $existingKKPath = ($isFamilyKKUpload && !($existingAnswer && $existingAnswer->media_path) && isset($savedFamily['kk_image_path'])) 
-                                                            ? $savedFamily['kk_image_path'] 
+                                                        $existingKKPath = ($existingFilePath && $isFamilyKKUpload && !($existingAnswer && $existingAnswer->media_path))
+                                                            ? $existingFilePath
                                                             : null;
                                                     @endphp
                                                     <div class="file-upload-container" data-question-id="{{ $question->id }}">
